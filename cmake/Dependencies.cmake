@@ -1,0 +1,66 @@
+# Third-party dependencies, downloaded at configure time.
+include(FetchContent)
+
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+
+# GLFW: window, OpenGL context, input
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(glfw
+  URL https://github.com/glfw/glfw/releases/download/3.4/glfw-3.4.zip
+  URL_HASH SHA256=b5ec004b2712fd08e8861dc271428f048775200a2df719ccf575143ba749a3e9)
+
+# GLEW: OpenGL loader required by the Cubism Framework renderer.
+# Built from its single source file; its own CMake script is outdated.
+FetchContent_Declare(glew
+  URL https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.zip
+  URL_HASH SHA256=a9046a913774395a095edcc0b0ac2d81c3aacca61787b39839b941e9be14e0d4
+  SOURCE_SUBDIR do-not-build)
+
+# Dear ImGui: settings window
+FetchContent_Declare(imgui
+  GIT_REPOSITORY https://github.com/ocornut/imgui.git
+  GIT_TAG v1.92.9
+  GIT_SHALLOW TRUE)
+
+# cpp-httplib: local event endpoint (header only)
+FetchContent_Declare(httplib
+  GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+  GIT_TAG v0.58.0
+  GIT_SHALLOW TRUE
+  SOURCE_SUBDIR do-not-build)
+
+# nlohmann/json: hook payloads, config, settings.json editing
+FetchContent_Declare(nlohmann_json
+  URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+  URL_HASH SHA256=42f6e95cad6ec532fd372391373363b62a14af6d771056dbfc86160e6dfff7aa)
+
+FetchContent_MakeAvailable(glfw glew nlohmann_json imgui httplib)
+
+find_package(OpenGL REQUIRED)
+add_library(glew_s STATIC ${glew_SOURCE_DIR}/src/glew.c)
+target_compile_definitions(glew_s PUBLIC GLEW_STATIC GLEW_NO_GLU)
+target_include_directories(glew_s PUBLIC ${glew_SOURCE_DIR}/include)
+target_link_libraries(glew_s PUBLIC OpenGL::GL)
+if(UNIX AND NOT APPLE)
+  find_package(X11 REQUIRED)
+  target_link_libraries(glew_s PUBLIC X11::X11)
+endif()
+
+add_library(imgui STATIC
+  ${imgui_SOURCE_DIR}/imgui.cpp
+  ${imgui_SOURCE_DIR}/imgui_draw.cpp
+  ${imgui_SOURCE_DIR}/imgui_tables.cpp
+  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+target_link_libraries(imgui PUBLIC glfw)
+
+add_library(httplib_header INTERFACE)
+target_include_directories(httplib_header INTERFACE ${httplib_SOURCE_DIR})

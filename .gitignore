@@ -1,0 +1,14 @@
+# Build output
+/build/
+/out/
+/.vs/
+/.vscode/
+CMakeUserPresets.json
+
+# Live2D Cubism SDK: download it yourself (licence forbids committing it)
+/third_party/CubismSdkForNative
+/third_party/CubismSdkForNative*/
+
+# Model files: follow each model's own licence, keep them out of git
+/assets/models/*
+!/assets/models/README.md
