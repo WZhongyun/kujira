@@ -173,6 +173,7 @@ bool App::InitWindow()
 
     Platform::MakeToolWindow(_window);
     glfwShowWindow(_window);
+    Platform::SetStayOnTop(_window, _config.topmost && _config.keepOnTop, _config.hideForFullscreen);
     return true;
 }
 
@@ -478,6 +479,7 @@ void App::ResetWindowPosition()
 void App::ConfigChanged()
 {
     glfwSetWindowAttrib(_window, GLFW_FLOATING, _config.topmost ? GLFW_TRUE : GLFW_FALSE);
+    Platform::SetStayOnTop(_window, _config.topmost && _config.keepOnTop, _config.hideForFullscreen);
     if (Platform::AutostartSupported() && Platform::IsAutostartEnabled() != _config.autostart)
     {
         Platform::SetAutostart(_config.autostart);
@@ -564,6 +566,12 @@ int App::Run()
         if (_states->ConsumeChanged())
         {
             ApplyAction(_states->CurrentKey());
+        }
+
+        if (frameStart - _lastStayOnTopCheck >= 1.0)
+        {
+            _lastStayOnTopCheck = frameStart;
+            Platform::UpdateStayOnTop();
         }
 
         const bool visible = glfwGetWindowAttrib(_window, GLFW_VISIBLE) && !glfwGetWindowAttrib(_window, GLFW_ICONIFIED);

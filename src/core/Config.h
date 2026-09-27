@@ -20,6 +20,8 @@ struct Config
     int windowY = -1;
     int windowHeight = 320;    // logical pixels; width follows the model
     bool topmost = true;
+    bool keepOnTop = true;         // re-raise above the taskbar after it is clicked
+    bool hideForFullscreen = true; // hide while a fullscreen app is in front
     bool clickThrough = true;
     bool lookAtMouse = true;
     bool autostart = false;

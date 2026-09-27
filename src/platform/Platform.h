@@ -35,6 +35,25 @@ bool SetAutostart(bool enable);
 // The int is the face index inside a .ttc collection.
 std::vector<std::pair<fs::path, int>> CjkFontCandidates();
 
+// Read-only memory mapping of a file. Mapped pages are backed by the file itself,
+// so they are shared with other processes and not counted as our private memory.
+struct MappedFile
+{
+    void* data = nullptr;
+    size_t size = 0;
+    void* handle = nullptr;
+};
+MappedFile MapFile(const fs::path& path);
+void UnmapFile(MappedFile& file);
+
+// Keep the pet above the taskbar and normal windows, re-asserted whenever the
+// foreground window changes. It yields to other topmost windows (screenshot
+// overlays, mini players) and can hide while a fullscreen app is in front.
+// No-op where unsupported.
+void SetStayOnTop(GLFWwindow* window, bool keepOnTop, bool hideForFullscreen);
+// Re-check the foreground window (catches an app leaving fullscreen); call about once a second.
+void UpdateStayOnTop();
+
 // Open a folder in the system file manager.
 void OpenFolder(const fs::path& folder);
 

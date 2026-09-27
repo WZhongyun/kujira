@@ -95,6 +95,7 @@ private:
     bool _openSettingsRequested = false;
 
     double _lastFrame = 0;
+    double _lastStayOnTopCheck = 0;
     double _fpsWindowStart = 0;
     int _fpsFrames = 0;
     float _fps = 0;
