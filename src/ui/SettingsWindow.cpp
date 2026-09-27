@@ -370,10 +370,10 @@ void SettingsWindow::DrawAppearance()
         Later([this] { _host.WindowSizeChanged(); });
     }
     Row("动作帧率", "（有事件时）");
-    ImGui::SliderInt("##afps", &c.activeFps, 20, 60, "%d fps");
+    ImGui::SliderInt("##afps", &c.activeFps, 20, 120, "%d fps");
     changed |= ImGui::IsItemDeactivatedAfterEdit();
     Row("空闲帧率");
-    ImGui::SliderInt("##ifps", &c.idleFps, 5, 30, "%d fps");
+    ImGui::SliderInt("##ifps", &c.idleFps, 5, 60, "%d fps");
     changed |= ImGui::IsItemDeactivatedAfterEdit();
 
     const PetModel* model = _host.Model();

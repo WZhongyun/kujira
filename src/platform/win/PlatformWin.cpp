@@ -1,5 +1,6 @@
 #include "platform/Platform.h"
 
+#include <algorithm>
 #include <cwchar>
 #include <iterator>
 
@@ -7,6 +8,11 @@
 #include <psapi.h>
 #include <shellapi.h>
 #include <shlobj.h>
+#include <timeapi.h>
+
+#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
+#endif
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
@@ -263,6 +269,27 @@ void UnmapFile(MappedFile& file)
     if (file.data) UnmapViewOfFile(file.data);
     if (file.handle) CloseHandle(static_cast<HANDLE>(file.handle));
     file = {};
+}
+
+void WaitEvents(double timeout)
+{
+    // High resolution waitable timer (Windows 10 1803+): precise wake-ups without
+    // raising the system-wide timer rate. Older systems fall back to timeBeginPeriod.
+    static HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+    if (!timer)
+    {
+        static const bool raised = timeBeginPeriod(1) == TIMERR_NOERROR;
+        (void)raised;
+        glfwWaitEventsTimeout(timeout);
+        return;
+    }
+    LARGE_INTEGER due{};
+    due.QuadPart = -std::max<LONGLONG>(1, static_cast<LONGLONG>(timeout * 1e7));  // relative, 100 ns units
+    if (SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE))
+    {
+        MsgWaitForMultipleObjects(1, &timer, FALSE, INFINITE, QS_ALLINPUT);
+    }
+    glfwPollEvents();
 }
 
 void SetStayOnTop(GLFWwindow* window, bool keepOnTop, bool hideForFullscreen)

@@ -54,6 +54,11 @@ void SetStayOnTop(GLFWwindow* window, bool keepOnTop, bool hideForFullscreen);
 // Re-check the foreground window (catches an app leaving fullscreen); call about once a second.
 void UpdateStayOnTop();
 
+// Wait for window events or until `timeout` seconds pass, then process events.
+// Unlike glfwWaitEventsTimeout, this wakes on time on Windows, whose default
+// timer only ticks every ~15.6 ms and makes frame pacing uneven.
+void WaitEvents(double timeout);
+
 // Open a folder in the system file manager.
 void OpenFolder(const fs::path& folder);
 

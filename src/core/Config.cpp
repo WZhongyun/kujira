@@ -119,8 +119,8 @@ Config Config::Load()
         c.token = RandomToken();
     }
     c.windowHeight = std::clamp(c.windowHeight, 120, 1200);
-    c.activeFps = std::clamp(c.activeFps, 15, 60);
-    c.idleFps = std::clamp(c.idleFps, 5, 30);
+    c.activeFps = std::clamp(c.activeFps, 15, 120);
+    c.idleFps = std::clamp(c.idleFps, 5, 60);
     c.sleepMinutes = std::clamp(c.sleepMinutes, 1, 120);
     if (c.port < 1024 || c.port > 65535) c.port = 38111;
     if (c.claudeHookMode != "command") c.claudeHookMode = "http";
