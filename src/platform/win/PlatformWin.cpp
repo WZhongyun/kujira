@@ -1,5 +1,6 @@
 #include "platform/Platform.h"
 
+#include <cwchar>
 #include <iterator>
 
 #include <windows.h>
@@ -32,6 +33,82 @@ std::string Narrow(const std::wstring& w)
     std::string s(static_cast<size_t>(n), '\0');
     WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), s.data(), n, nullptr, nullptr);
     return s;
+}
+
+// Stay-on-top state (one pet window per process).
+HWND g_pet = nullptr;
+bool g_keepOnTop = false;
+bool g_hideForFullscreen = false;
+bool g_hiddenForFullscreen = false;
+HWINEVENTHOOK g_foregroundHook = nullptr;
+
+bool HasClass(HWND hwnd, const wchar_t* name)
+{
+    wchar_t cls[64] = {};
+    GetClassNameW(hwnd, cls, static_cast<int>(std::size(cls)));
+    return wcscmp(cls, name) == 0;
+}
+
+bool IsTaskbar(HWND hwnd)
+{
+    return HasClass(hwnd, L"Shell_TrayWnd") || HasClass(hwnd, L"Shell_SecondaryTrayWnd");
+}
+
+bool IsDesktop(HWND hwnd)
+{
+    return HasClass(hwnd, L"Progman") || HasClass(hwnd, L"WorkerW");
+}
+
+bool IsFullscreen(HWND hwnd)
+{
+    if (IsDesktop(hwnd) || IsTaskbar(hwnd) || !IsWindowVisible(hwnd) || IsIconic(hwnd)) return false;
+    RECT rc{};
+    if (!GetWindowRect(hwnd, &rc)) return false;
+    MONITORINFO mi{};
+    mi.cbSize = sizeof(mi);
+    if (!GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &mi)) return false;
+    return rc.left <= mi.rcMonitor.left && rc.top <= mi.rcMonitor.top &&
+           rc.right >= mi.rcMonitor.right && rc.bottom >= mi.rcMonitor.bottom;
+}
+
+void RaisePet()
+{
+    SetWindowPos(g_pet, HWND_TOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+}
+
+void CheckForeground()
+{
+    if (!g_pet) return;
+    HWND fg = GetForegroundWindow();
+    if (!fg) return;
+    DWORD pid = 0;
+    GetWindowThreadProcessId(fg, &pid);
+    if (pid == GetCurrentProcessId()) return;  // our own settings window
+
+    const bool fgTopmost = (GetWindowLongW(fg, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+    const bool taskbar = IsTaskbar(fg);
+
+    // Hide behind a fullscreen app (video, game). Topmost overlays such as the
+    // screenshot selection layer also cover the screen, so they don't count.
+    const bool hide = g_hideForFullscreen && !fgTopmost && IsFullscreen(fg);
+    if (hide != g_hiddenForFullscreen)
+    {
+        g_hiddenForFullscreen = hide;
+        ShowWindow(g_pet, hide ? SW_HIDE : SW_SHOWNOACTIVATE);
+    }
+    if (hide) return;
+
+    // Yield to other topmost windows, except the taskbar which we want to stay above.
+    if (g_keepOnTop && (taskbar || !fgTopmost))
+    {
+        RaisePet();
+    }
+}
+
+void CALLBACK OnForegroundChanged(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD)
+{
+    CheckForeground();
 }
 
 std::wstring ExePath()
@@ -150,6 +227,72 @@ std::vector<std::pair<fs::path, int>> CjkFontCandidates()
         { fonts / L"simhei.ttf", 0 },
         { fonts / L"simsun.ttc", 0 },
     };
+}
+
+MappedFile MapFile(const fs::path& path)
+{
+    MappedFile file;
+    HANDLE handle = CreateFileW(path.wstring().c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                                FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (handle == INVALID_HANDLE_VALUE) return file;
+    LARGE_INTEGER size{};
+    if (GetFileSizeEx(handle, &size) && size.QuadPart > 0)
+    {
+        HANDLE mapping = CreateFileMappingW(handle, nullptr, PAGE_READONLY, 0, 0, nullptr);
+        if (mapping)
+        {
+            void* data = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
+            if (data)
+            {
+                file.data = data;
+                file.size = static_cast<size_t>(size.QuadPart);
+                file.handle = mapping;
+            }
+            else
+            {
+                CloseHandle(mapping);
+            }
+        }
+    }
+    CloseHandle(handle);
+    return file;
+}
+
+void UnmapFile(MappedFile& file)
+{
+    if (file.data) UnmapViewOfFile(file.data);
+    if (file.handle) CloseHandle(static_cast<HANDLE>(file.handle));
+    file = {};
+}
+
+void SetStayOnTop(GLFWwindow* window, bool keepOnTop, bool hideForFullscreen)
+{
+    g_pet = glfwGetWin32Window(window);
+    g_keepOnTop = keepOnTop;
+    g_hideForFullscreen = hideForFullscreen;
+    const bool wanted = keepOnTop || hideForFullscreen;
+    if (wanted && !g_foregroundHook)
+    {
+        // Out-of-context hook: delivered through this thread's message loop, no DLL injection.
+        g_foregroundHook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, nullptr,
+                                           OnForegroundChanged, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+    }
+    else if (!wanted && g_foregroundHook)
+    {
+        UnhookWinEvent(g_foregroundHook);
+        g_foregroundHook = nullptr;
+    }
+    if (!hideForFullscreen && g_hiddenForFullscreen)
+    {
+        g_hiddenForFullscreen = false;
+        ShowWindow(g_pet, SW_SHOWNOACTIVATE);
+    }
+    CheckForeground();
+}
+
+void UpdateStayOnTop()
+{
+    if (g_foregroundHook) CheckForeground();
 }
 
 void OpenFolder(const fs::path& folder)

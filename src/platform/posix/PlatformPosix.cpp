@@ -7,6 +7,8 @@
 
 #include <fcntl.h>
 #include <sys/file.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #ifdef __APPLE__
@@ -126,6 +128,34 @@ std::vector<std::pair<fs::path, int>> CjkFontCandidates()
     };
 #endif
 }
+
+MappedFile MapFile(const fs::path& path)
+{
+    MappedFile file;
+    int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return file;
+    struct stat st{};
+    if (fstat(fd, &st) == 0 && st.st_size > 0)
+    {
+        void* data = mmap(nullptr, static_cast<size_t>(st.st_size), PROT_READ, MAP_PRIVATE, fd, 0);
+        if (data != MAP_FAILED)
+        {
+            file.data = data;
+            file.size = static_cast<size_t>(st.st_size);
+        }
+    }
+    close(fd);
+    return file;
+}
+
+void UnmapFile(MappedFile& file)
+{
+    if (file.data) munmap(file.data, file.size);
+    file = {};
+}
+
+void SetStayOnTop(GLFWwindow*, bool, bool) {}
+void UpdateStayOnTop() {}
 
 void OpenFolder(const fs::path& folder)
 {

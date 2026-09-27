@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "agents/AgentAdapter.h"
+#include "platform/Platform.h"
 
 struct GLFWwindow;
 struct ImGuiContext;
@@ -41,7 +42,8 @@ private:
     AppHost& _host;
     GLFWwindow* _window = nullptr;
     ImGuiContext* _imgui = nullptr;
-    ImFont* _bold = nullptr;
+    ImFont* _titleFont = nullptr;
+    Platform::MappedFile _fontFile;
     unsigned int _iconTexture = 0;
     int _page = 0;
     std::vector<std::function<void()>> _pending;

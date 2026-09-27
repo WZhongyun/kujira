@@ -87,6 +87,8 @@ Config Config::Load()
             Get(j, "windowY", c.windowY);
             Get(j, "windowHeight", c.windowHeight);
             Get(j, "topmost", c.topmost);
+            Get(j, "keepOnTop", c.keepOnTop);
+            Get(j, "hideForFullscreen", c.hideForFullscreen);
             Get(j, "clickThrough", c.clickThrough);
             Get(j, "lookAtMouse", c.lookAtMouse);
             Get(j, "autostart", c.autostart);
@@ -133,6 +135,8 @@ bool Config::Save() const
     j["windowY"] = windowY;
     j["windowHeight"] = windowHeight;
     j["topmost"] = topmost;
+    j["keepOnTop"] = keepOnTop;
+    j["hideForFullscreen"] = hideForFullscreen;
     j["clickThrough"] = clickThrough;
     j["lookAtMouse"] = lookAtMouse;
     j["autostart"] = autostart;

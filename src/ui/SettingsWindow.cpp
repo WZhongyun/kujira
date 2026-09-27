@@ -134,21 +134,21 @@ void SettingsWindow::Open()
     {
         std::error_code ec;
         if (!fs::exists(path, ec)) continue;
+        // Map the system font instead of reading it: a CJK font is ~20 MB, and mapped
+        // pages are shared with the OS rather than counted as our memory.
+        _fontFile = Platform::MapFile(path);
+        if (!_fontFile.data) continue;
         ImFontConfig cfg;
         cfg.FontNo = index;
-        regular = io.Fonts->AddFontFromFileTTF(FileUtil::ToUtf8(path).c_str(), 17.0f, &cfg);
+        cfg.FontDataOwnedByAtlas = false;
+        regular = io.Fonts->AddFontFromMemoryTTF(_fontFile.data, static_cast<int>(_fontFile.size), 17.0f, &cfg);
         if (regular)
         {
-            // Matching bold face if the system has one (msyhbd.ttc, NotoSansCJK-Bold.ttc).
-            std::string boldName = FileUtil::ToUtf8(path.filename());
-            if (boldName == "msyh.ttc") boldName = "msyhbd.ttc";
-            else if (boldName.find("Regular") != std::string::npos) boldName.replace(boldName.find("Regular"), 7, "Bold");
-            fs::path boldPath = path.parent_path() / FileUtil::FromUtf8(boldName);
-            if (!fs::exists(boldPath, ec)) boldPath = path;
-            ImFontConfig bold = cfg;
-            _bold = io.Fonts->AddFontFromFileTTF(FileUtil::ToUtf8(boldPath).c_str(), 22.0f, &bold);
+            // Titles use the same face at a larger size; a separate bold file would cost another ~16 MB.
+            _titleFont = regular;
             break;
         }
+        Platform::UnmapFile(_fontFile);
     }
     if (!regular)
     {
@@ -187,7 +187,8 @@ void SettingsWindow::Close()
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext(_imgui);
     _imgui = nullptr;
-    _bold = nullptr;
+    _titleFont = nullptr;
+    Platform::UnmapFile(_fontFile);
     GLFWwindow* self = _window;
     glfwDestroyWindow(_window);
     _window = nullptr;
@@ -196,7 +197,7 @@ void SettingsWindow::Close()
 
 void SettingsWindow::SectionTitle(const char* title, const char* caption)
 {
-    ImGui::PushFont(_bold, 22.0f);
+    ImGui::PushFont(_titleFont, 22.0f);
     ImGui::TextUnformatted(title);
     ImGui::PopFont();
     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
@@ -282,7 +283,7 @@ void SettingsWindow::DrawSidebar()
         ImGui::SameLine();
     }
     ImGui::BeginGroup();
-    ImGui::PushFont(_bold, 20.0f);
+    ImGui::PushFont(_titleFont, 20.0f);
     ImGui::TextUnformatted("鲸鱼娘");
     ImGui::PopFont();
     ImGui::TextDisabled("Kujira %s", KUJIRA_VERSION);
@@ -323,6 +324,14 @@ void SettingsWindow::DrawGeneral()
     }
     Row("窗口始终置顶");
     changed |= ImGui::Checkbox("##topmost", &c.topmost);
+#ifdef _WIN32
+    ImGui::BeginDisabled(!c.topmost);
+    Row("保持在任务栏上方", "（点任务栏后自动回到最上层）");
+    changed |= ImGui::Checkbox("##keepontop", &c.keepOnTop);
+    ImGui::EndDisabled();
+    Row("全屏程序时隐藏", "（看视频、玩游戏时）");
+    changed |= ImGui::Checkbox("##fullscreen", &c.hideForFullscreen);
+#endif
     Row("透明区域点击穿透", "（关掉则整个窗口都可点）");
     changed |= ImGui::Checkbox("##passthrough", &c.clickThrough);
     Row("视线跟随鼠标");
@@ -492,7 +501,7 @@ void SettingsWindow::DrawAgents()
         const HookStatus& st = _hookStatus[i];
         ImGui::PushID(a.Id());
 
-        ImGui::PushFont(_bold, 18.0f);
+        ImGui::PushFont(_titleFont, 18.0f);
         ImGui::TextUnformatted(a.DisplayName());
         ImGui::PopFont();
         ImGui::SameLine();
