@@ -125,8 +125,8 @@ Config Config::Load()
         c.token = RandomToken();
     }
     c.windowHeight = std::clamp(c.windowHeight, 120, 1200);
-    c.activeFps = std::clamp(c.activeFps, 15, 120);
-    c.idleFps = std::clamp(c.idleFps, 5, 60);
+    c.activeFps = std::clamp(c.activeFps, 5, 120);
+    c.idleFps = std::clamp(c.idleFps, 5, 120);
     if (c.bubbleMode != "all" && c.bubbleMode != "important" && c.bubbleMode != "off") c.bubbleMode = "all";
     c.bubbleSeconds = std::clamp(c.bubbleSeconds, 2.0f, 30.0f);
     c.chatMinutes = std::clamp(c.chatMinutes, 0, 120);
