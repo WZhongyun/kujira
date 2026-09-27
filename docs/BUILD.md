@@ -21,7 +21,7 @@
 
 2. 放入 Cubism SDK：从 [Live2D 官网](https://www.live2d.com/sdk/download/native/) 下载 Cubism SDK for Native（已验证 5-r.5），解压后把文件夹改名或复制为 `third_party/CubismSdkForNative`，里面应能看到 `Core`、`Framework` 两个文件夹。
 
-3. 放入模型：把模型文件夹（例如 `Kujira-Live2D`）复制到 `assets/models/` 下，见 [assets/models/README.md](../assets/models/README.md)。
+3. 放入模型：把模型文件夹（例如 `Kujira-Live2D`）复制到 `assets/models/` 下，见 [assets/models/README.md](../assets/models/README.md)。编译时会用模型文件夹里的 `icon.png` 生成 exe 图标；没有这个文件就用默认图标。
 
 4. 在「Developer PowerShell for VS 2022」里编译：
 
