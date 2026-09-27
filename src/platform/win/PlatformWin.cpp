@@ -47,6 +47,7 @@ bool g_keepOnTop = false;
 bool g_hideForFullscreen = false;
 bool g_hiddenForFullscreen = false;
 HWINEVENTHOOK g_foregroundHook = nullptr;
+HWND g_lastForeground = nullptr;
 
 bool HasClass(HWND hwnd, const wchar_t* name)
 {
@@ -83,11 +84,31 @@ void RaisePet()
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
 }
 
-void CheckForeground()
+// True when the taskbar sits above the pet in the z-order (it re-raises itself
+// while you use it).
+bool TaskbarAbovePet()
+{
+    for (HWND w = GetWindow(g_pet, GW_HWNDPREV); w; w = GetWindow(w, GW_HWNDPREV))
+    {
+        if (IsTaskbar(w)) return true;
+    }
+    return false;
+}
+
+// `changed`: the foreground window just changed (hook) or the settings changed.
+// The periodic re-check only acts when something is actually different, so an
+// idle pet does not touch the z-order every second (each SetWindowPos makes the
+// compositor rebuild the scene).
+void CheckForeground(bool changed)
 {
     if (!g_pet) return;
     HWND fg = GetForegroundWindow();
     if (!fg) return;
+    if (fg != g_lastForeground)
+    {
+        g_lastForeground = fg;
+        changed = true;
+    }
     DWORD pid = 0;
     GetWindowThreadProcessId(fg, &pid);
     if (pid == GetCurrentProcessId()) return;  // our own settings window
@@ -102,11 +123,12 @@ void CheckForeground()
     {
         g_hiddenForFullscreen = hide;
         ShowWindow(g_pet, hide ? SW_HIDE : SW_SHOWNOACTIVATE);
+        changed = true;
     }
     if (hide) return;
 
     // Yield to other topmost windows, except the taskbar which we want to stay above.
-    if (g_keepOnTop && (taskbar || !fgTopmost))
+    if (g_keepOnTop && (taskbar || !fgTopmost) && (changed || (taskbar && TaskbarAbovePet())))
     {
         RaisePet();
     }
@@ -114,7 +136,7 @@ void CheckForeground()
 
 void CALLBACK OnForegroundChanged(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD)
 {
-    CheckForeground();
+    CheckForeground(true);
 }
 
 std::wstring ExePath()
@@ -166,7 +188,9 @@ void MakeToolWindow(GLFWwindow* window)
 {
     HWND hwnd = glfwGetWin32Window(window);
     LONG_PTR ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-    ex = (ex | WS_EX_TOOLWINDOW) & ~static_cast<LONG_PTR>(WS_EX_APPWINDOW);
+    // WS_EX_NOACTIVATE: clicking or dragging her never takes focus from the app you are
+    // using, and closing the settings window does not hand focus to her.
+    ex = (ex | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE) & ~static_cast<LONG_PTR>(WS_EX_APPWINDOW);
     SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex);
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE);
 }
@@ -327,12 +351,12 @@ void SetStayOnTop(GLFWwindow* window, bool keepOnTop, bool hideForFullscreen)
         g_hiddenForFullscreen = false;
         ShowWindow(g_pet, SW_SHOWNOACTIVATE);
     }
-    CheckForeground();
+    CheckForeground(true);
 }
 
 void UpdateStayOnTop()
 {
-    if (g_foregroundHook) CheckForeground();
+    if (g_foregroundHook) CheckForeground(false);
 }
 
 void OpenFolder(const fs::path& folder)
