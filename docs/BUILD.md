@@ -54,15 +54,40 @@ cmake --build build -j
 
 需要带合成器的桌面环境才有透明背景。
 
-## macOS
+## macOS（试验中）
 
-尚未移植（计划用 Metal，里程碑 M3）。CMake 里保留了 OpenGL 的临时路径，但没有测试过。
+目前用 OpenGL 渲染（苹果已弃用但仍可用），计划中的 Metal 版本之后再做。Apple 芯片和 Intel 都支持，CMake 会自动选对应的 Cubism Core 库。
+
+### 需要准备
+
+- macOS 11 或更新
+- Xcode 命令行工具：`xcode-select --install`（不需要完整的 Xcode）
+- CMake 和 Ninja：装了 [Homebrew](https://brew.sh) 的话 `brew install cmake ninja`
+
+### 步骤
+
+```bash
+git clone https://github.com/WZhongyun/Kujira.git
+cd Kujira
+git checkout claude/project-thread-y5vv76
+# 和 Windows 一样放入 SDK 和模型：
+#   third_party/CubismSdkForNative/  （里面有 Core、Framework）
+#   assets/models/Kujira-Live2D/
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+./build/Kujira
+```
+
+- 她不会出现在程序坞里，右键她或用悬浮按钮打开设置，悬浮按钮里的 × 退出。
+- 设置保存在 `~/Library/Application Support/Kujira/`，开机自启写在 `~/Library/LaunchAgents/com.kujira.pet.plist`。
+- 自己编译的程序不会被“无法验证开发者”拦住；如果复制到别的 Mac 上被拦，右键 → 打开即可。
 
 ## 配置与日志位置
 
 | 平台 | 配置文件 |
 | --- | --- |
 | Windows | `%APPDATA%\Kujira\config.json` |
+| macOS | `~/Library/Application Support/Kujira/config.json` |
 | Linux | `~/.config/kujira/config.json` |
 
 删除配置文件即可恢复默认设置（hook 的令牌会重新生成，需要在设置里点一次「更新 hook」）。

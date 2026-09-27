@@ -61,6 +61,14 @@ add_library(imgui STATIC
   ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
 target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
 target_link_libraries(imgui PUBLIC glfw)
+# The pet window's overlay runs in a legacy OpenGL 2.1 context on macOS.
+# KUJIRA_OVERLAY_GL2 lets a Linux build exercise that path.
+option(KUJIRA_OVERLAY_GL2 "Draw the pet overlay with the OpenGL 2 backend (always on for macOS)" OFF)
+if(APPLE OR KUJIRA_OVERLAY_GL2)
+  target_sources(imgui PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl2.cpp)
+  target_compile_definitions(imgui PUBLIC GL_SILENCE_DEPRECATION KUJIRA_OVERLAY_GL2)
+  target_link_libraries(imgui PUBLIC OpenGL::GL)
+endif()
 
 add_library(httplib_header INTERFACE)
 target_include_directories(httplib_header INTERFACE ${httplib_SOURCE_DIR})

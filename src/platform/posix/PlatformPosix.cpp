@@ -1,4 +1,4 @@
-// Linux (development build) and a provisional macOS path until the Metal port (M3).
+// Linux (development build) and the parts macOS shares with it; macOS-only code is in mac/PlatformMac.mm.
 #include "platform/Platform.h"
 
 #include <cstdlib>
@@ -46,10 +46,12 @@ bool AcquireSingleInstance()
     return fd >= 0 && flock(fd, LOCK_EX | LOCK_NB) == 0;
 }
 
+#ifndef __APPLE__  // macOS: PlatformMac.mm
 void MakeToolWindow(GLFWwindow*)
 {
     // GLFW has no portable "skip taskbar" hint; nothing to do here yet.
 }
+#endif
 
 uint64_t ProcessMemoryBytes()
 {
@@ -78,11 +80,7 @@ uint64_t ProcessMemoryBytes()
 #endif
 }
 
-#ifdef __APPLE__
-bool AutostartSupported() { return false; }
-bool IsAutostartEnabled() { return false; }
-bool SetAutostart(bool) { return false; }
-#else
+#ifndef __APPLE__  // macOS: PlatformMac.mm
 static fs::path AutostartFile()
 {
     const char* xdg = std::getenv("XDG_CONFIG_HOME");
@@ -115,9 +113,10 @@ std::vector<std::pair<fs::path, int>> CjkFontCandidates()
 {
 #ifdef __APPLE__
     return {
-        { "/System/Library/Fonts/PingFang.ttc", 0 },
-        { "/System/Library/Fonts/STHeiti Medium.ttc", 0 },
+        // PingFang moved out of /System/Library/Fonts in macOS 10.15; these two ship everywhere.
         { "/System/Library/Fonts/Hiragino Sans GB.ttc", 0 },
+        { "/System/Library/Fonts/STHeiti Medium.ttc", 0 },
+        { "/System/Library/Fonts/PingFang.ttc", 0 },
     };
 #else
     return {
@@ -159,8 +158,10 @@ void WaitEvents(double timeout)
     glfwWaitEventsTimeout(timeout);
 }
 
+#ifndef __APPLE__  // macOS: PlatformMac.mm
 void SetStayOnTop(GLFWwindow*, bool, bool) {}
 void UpdateStayOnTop() {}
+#endif
 
 void OpenFolder(const fs::path& folder)
 {
