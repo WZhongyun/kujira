@@ -1,13 +1,16 @@
 #pragma once
 
 #include <memory>
+#include <random>
 #include <string>
 
 #include "core/Config.h"
+#include "core/Dialogue.h"
 #include "core/EventQueue.h"
 #include "core/StateMachine.h"
 #include "events/EventServer.h"
 #include "events/PetEvent.h"
+#include "ui/PetOverlay.h"
 
 struct GLFWwindow;
 class PetModel;
@@ -31,6 +34,9 @@ public:
     virtual void ResetWindowPosition() = 0;
     virtual float CurrentFps() const = 0;
     virtual void Quit() = 0;
+    virtual Dialogue& GetDialogue() = 0;
+    virtual void DialogueChanged() = 0;         // save dialogue.json
+    virtual void SayPreview(const std::string& text) = 0;
 };
 
 class App : public AppHost
@@ -55,6 +61,9 @@ public:
     void ResetWindowPosition() override;
     float CurrentFps() const override { return _fps; }
     void Quit() override;
+    Dialogue& GetDialogue() override { return _dialogue; }
+    void DialogueChanged() override;
+    void SayPreview(const std::string& text) override;
 
 private:
     bool InitWindow();
@@ -70,6 +79,12 @@ private:
     void OpenSettings();
     fs::path ResolveModelDir() const;
 
+    // Speech bubble, filtered by the bubble settings.
+    void Say(const std::string& text, float seconds, PetOverlay::Priority priority);
+    void SayForEvent(const PetEvent& event);
+    void UpdateTalk(double now);
+    void OnToolbarButton(PetOverlay::Button button);
+
     static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 
     Config _config;
@@ -80,12 +95,25 @@ private:
     EventQueue<PetEvent> _queue;
     std::unique_ptr<EventServer> _server;
     std::unique_ptr<SettingsWindow> _settings;
+    PetOverlay _overlay;
+    PetOverlay::Layout _layout;
+    Dialogue _dialogue;
+    std::mt19937 _rng{ std::random_device{}() };
 
     bool _quit = false;
     bool _fitted = false;
     bool _passthrough = false;
     bool _hovering = false;
     int _hoverMisses = 0;
+    bool _hoverModel = false;       // cursor over the model itself (not the bubble or toolbar)
+    double _hoverStart = 0;
+    double _lastHoverLine = -100;
+    double _toolbarUntil = 0;
+    double _nextChat = 0;
+    bool _greeted = false;
+    StateMachine::State _shownState = StateMachine::State::Idle;
+    PetOverlay::Button _pressedButton = PetOverlay::Button::None;
+    bool _pressedBubble = false;
 
     // Drag state (screen coordinates)
     bool _pressed = false;

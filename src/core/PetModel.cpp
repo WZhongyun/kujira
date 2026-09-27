@@ -367,7 +367,7 @@ void PetModel::MeasureBounds()
     _bounds[0] = minX; _bounds[1] = minY; _bounds[2] = maxX; _bounds[3] = maxY;
 }
 
-void PetModel::Draw(int fbWidth, int fbHeight)
+void PetModel::Draw(int fbWidth, int fbHeight, float rectX, float rectY, float rectW, float rectH)
 {
     if (!_model || fbWidth <= 0 || fbHeight <= 0) return;
 
@@ -392,14 +392,24 @@ void PetModel::Draw(int fbWidth, int fbHeight)
     const float bh = _bounds[3] - _bounds[1];
     const float cx = (_bounds[0] + _bounds[2]) * 0.5f;
     const float cy = (_bounds[1] + _bounds[3]) * 0.5f;
-    const float pixelsPerUnit = std::min(fbWidth / bw, fbHeight / bh);
+    // Fit the bounds into the target rectangle (framebuffer pixels, origin bottom-left).
+    if (rectW <= 0 || rectH <= 0)
+    {
+        rectX = 0;
+        rectY = 0;
+        rectW = static_cast<float>(fbWidth);
+        rectH = static_cast<float>(fbHeight);
+    }
+    const float pixelsPerUnit = std::min(rectW / bw, rectH / bh);
     const float sx = pixelsPerUnit / (fbWidth * 0.5f);
     const float sy = pixelsPerUnit / (fbHeight * 0.5f);
+    const float ndcX = (rectX + rectW * 0.5f) / fbWidth * 2.0f - 1.0f;
+    const float ndcY = (rectY + rectH * 0.5f) / fbHeight * 2.0f - 1.0f;
 
     float tr[16] = { sx, 0, 0, 0,
                      0, sy, 0, 0,
                      0, 0, 1, 0,
-                     -cx * sx, -cy * sy, 0, 1 };
+                     ndcX - cx * sx, ndcY - cy * sy, 0, 1 };
     CubismMatrix44 projection;
     projection.SetMatrix(tr);
     projection.MultiplyByMatrix(_modelMatrix);

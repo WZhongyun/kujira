@@ -31,6 +31,14 @@ struct Config
     int idleFps = 30;
     int sleepMinutes = 5;
 
+    // Speech bubble
+    std::string bubbleMode = "all";  // "all", "important" (agent needs you / finished), "off"
+    float bubbleSeconds = 5.0f;      // how long a line stays up
+    int chatMinutes = 15;            // idle small talk every ~N minutes, 0 = never
+    bool interactionText = true;     // lines when hovered, clicked, dragged
+    bool quietMode = false;          // toolbar switch: no small talk or interaction lines
+    bool showToolbar = true;         // settings / quiet / quit buttons on hover
+
     // Model
     std::string modelDir;      // "" = first model under assets/models
     std::string idleMotion = "idle";

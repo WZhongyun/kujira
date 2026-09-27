@@ -24,6 +24,8 @@ struct PetEvent
     std::string agent;      // adapter id, e.g. "claude-code"
     std::string sessionId;  // agent's own session id
     std::string detail;     // native event / tool name, for display
+    std::string text;       // short human-readable target or message for the speech bubble:
+                            // a file name, a command description, a notification, the final reply
 };
 
 const char* PetEventKindName(PetEvent::Kind kind);

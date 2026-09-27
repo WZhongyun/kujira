@@ -22,7 +22,7 @@ constexpr int kWidth = 900;
 constexpr int kHeight = 620;
 constexpr float kLabelColumn = 300.0f;
 
-const char* kPages[] = { "常规", "外观与动画", "动作映射", "Agent 接入", "关于" };
+const char* kPages[] = { "常规", "外观与动画", "气泡与台词", "动作映射", "Agent 接入", "关于" };
 
 bool NameCombo(const char* id, std::string& value, const std::vector<std::string>& names, const char* noneLabel)
 {
@@ -170,6 +170,7 @@ void SettingsWindow::Open()
     std::snprintf(_modelDirEdit, sizeof(_modelDirEdit), "%s", config.modelDir.c_str());
     _hookStatusTime = -100;
     _hookMessage.clear();
+    _dialogueLoaded = -1;
 
     glfwMakeContextCurrent(previous);
 }
@@ -254,8 +255,9 @@ void SettingsWindow::Frame()
     {
     case 0: DrawGeneral(); break;
     case 1: DrawAppearance(); break;
-    case 2: DrawActions(); break;
-    case 3: DrawAgents(); break;
+    case 2: DrawDialogue(); break;
+    case 3: DrawActions(); break;
+    case 4: DrawAgents(); break;
     default: DrawAbout(); break;
     }
     ImGui::EndChild();
@@ -413,6 +415,112 @@ void SettingsWindow::DrawAppearance()
     }
 
     if (changed) Later([this] { _host.ConfigChanged(); });
+}
+
+void SettingsWindow::DrawDialogue()
+{
+    Config& c = _host.GetConfig();
+    SectionTitle("气泡与台词", "她头顶的对话气泡：Agent 在做什么、需要你处理什么，以及闲聊和互动时说的话");
+
+    bool changed = false;
+    static const char* kModes[] = { "all", "important", "off" };
+    static const char* kModeLabels[] = { "全部显示", "只显示重要的（等你处理、完成时）", "关闭" };
+    int mode = 0;
+    for (int i = 0; i < 3; ++i)
+    {
+        if (c.bubbleMode == kModes[i]) mode = i;
+    }
+    Row("显示气泡");
+    if (ImGui::Combo("##bubblemode", &mode, kModeLabels, 3))
+    {
+        c.bubbleMode = kModes[mode];
+        changed = true;
+    }
+    ImGui::BeginDisabled(c.bubbleMode == "off");
+    Row("每句停留");
+    ImGui::SliderFloat("##bubblesec", &c.bubbleSeconds, 2.0f, 15.0f, "%.0f 秒");
+    changed |= ImGui::IsItemDeactivatedAfterEdit();
+    Row("闲聊", "（空闲时隔一段时间说一句）");
+    ImGui::SliderInt("##chat", &c.chatMinutes, 0, 60, c.chatMinutes == 0 ? "不闲聊" : "约每 %d 分钟");
+    changed |= ImGui::IsItemDeactivatedAfterEdit();
+    Row("互动台词", "（悬停、点击、拖动时）");
+    changed |= ImGui::Checkbox("##interact", &c.interactionText);
+    Row("安静模式", "（只说 Agent 相关的话）");
+    changed |= ImGui::Checkbox("##quiet", &c.quietMode);
+    ImGui::EndDisabled();
+    Row("悬停时显示小按钮", "（设置、安静模式、退出）");
+    changed |= ImGui::Checkbox("##toolbar", &c.showToolbar);
+    if (changed) Later([this] { _host.ConfigChanged(); });
+
+    // Lines, one group at a time; one line per row in the editor.
+    ImGui::Separator();
+    Dialogue& dialogue = _host.GetDialogue();
+    const auto& categories = Dialogue::Categories();
+    _dialogueCategory = std::clamp(_dialogueCategory, 0, static_cast<int>(categories.size()) - 1);
+    const Dialogue::Category& category = categories[_dialogueCategory];
+    Row("台词分组");
+    if (ImGui::BeginCombo("##category", category.label, ImGuiComboFlags_HeightLarge))
+    {
+        for (int i = 0; i < static_cast<int>(categories.size()); ++i)
+        {
+            if (ImGui::Selectable(categories[i].label, i == _dialogueCategory)) _dialogueCategory = i;
+        }
+        ImGui::EndCombo();
+    }
+    if (_dialogueLoaded != _dialogueCategory)
+    {
+        std::string joined;
+        for (const auto& line : dialogue.Lines(categories[_dialogueCategory].key))
+        {
+            if (!joined.empty()) joined += '\n';
+            joined += line;
+        }
+        std::snprintf(_dialogueEdit, sizeof(_dialogueEdit), "%s", joined.c_str());
+        _dialogueLoaded = _dialogueCategory;
+    }
+    const Dialogue::Category& current = categories[_dialogueCategory];
+    ImGui::TextDisabled("用在：%s。每行一句，随机挑一句说；留空就不说。", current.hint);
+
+    const float s = ImGui::GetStyle().FontScaleDpi;
+    ImGui::InputTextMultiline("##lines", _dialogueEdit, sizeof(_dialogueEdit),
+                              ImVec2(-1, std::max(120 * s, ImGui::GetContentRegionAvail().y - 80 * s)));
+    auto saveEdit = [&] {
+        std::vector<std::string> lines;
+        std::string text = _dialogueEdit;
+        size_t start = 0;
+        while (start <= text.size())
+        {
+            size_t end = text.find('\n', start);
+            if (end == std::string::npos) end = text.size();
+            std::string line = text.substr(start, end - start);
+            while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
+            while (!line.empty() && line.front() == ' ') line.erase(0, 1);
+            if (!line.empty()) lines.push_back(line);
+            start = end + 1;
+        }
+        dialogue.SetLines(current.key, std::move(lines));
+        _host.DialogueChanged();
+    };
+    if (ImGui::IsItemDeactivatedAfterEdit()) saveEdit();
+
+    if (Theme::PrimaryButton("试一句"))
+    {
+        saveEdit();
+        const std::string line = dialogue.Pick(current.key, "App.cpp");
+        if (!line.empty()) _host.SayPreview(line);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("恢复这一组的默认台词"))
+    {
+        dialogue.ResetToDefault(current.key);
+        _host.DialogueChanged();
+        _dialogueLoaded = -1;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("打开台词文件夹"))
+    {
+        Platform::OpenFolder(Platform::ConfigDir());
+    }
 }
 
 void SettingsWindow::DrawActions()

@@ -95,6 +95,12 @@ Config Config::Load()
             Get(j, "activeFps", c.activeFps);
             Get(j, "idleFps", c.idleFps);
             Get(j, "sleepMinutes", c.sleepMinutes);
+            Get(j, "bubbleMode", c.bubbleMode);
+            Get(j, "bubbleSeconds", c.bubbleSeconds);
+            Get(j, "chatMinutes", c.chatMinutes);
+            Get(j, "interactionText", c.interactionText);
+            Get(j, "quietMode", c.quietMode);
+            Get(j, "showToolbar", c.showToolbar);
             Get(j, "modelDir", c.modelDir);
             Get(j, "idleMotion", c.idleMotion);
             Get(j, "port", c.port);
@@ -121,6 +127,9 @@ Config Config::Load()
     c.windowHeight = std::clamp(c.windowHeight, 120, 1200);
     c.activeFps = std::clamp(c.activeFps, 15, 120);
     c.idleFps = std::clamp(c.idleFps, 5, 60);
+    if (c.bubbleMode != "all" && c.bubbleMode != "important" && c.bubbleMode != "off") c.bubbleMode = "all";
+    c.bubbleSeconds = std::clamp(c.bubbleSeconds, 2.0f, 30.0f);
+    c.chatMinutes = std::clamp(c.chatMinutes, 0, 120);
     c.sleepMinutes = std::clamp(c.sleepMinutes, 1, 120);
     if (c.port < 1024 || c.port > 65535) c.port = 38111;
     if (c.claudeHookMode != "command") c.claudeHookMode = "http";
@@ -143,6 +152,12 @@ bool Config::Save() const
     j["activeFps"] = activeFps;
     j["idleFps"] = idleFps;
     j["sleepMinutes"] = sleepMinutes;
+    j["bubbleMode"] = bubbleMode;
+    j["bubbleSeconds"] = bubbleSeconds;
+    j["chatMinutes"] = chatMinutes;
+    j["interactionText"] = interactionText;
+    j["quietMode"] = quietMode;
+    j["showToolbar"] = showToolbar;
     j["modelDir"] = modelDir;
     j["idleMotion"] = idleMotion;
     j["port"] = port;

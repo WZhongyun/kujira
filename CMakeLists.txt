@@ -98,6 +98,7 @@ set(KUJIRA_SOURCES
   src/main.cpp
   src/core/App.cpp
   src/core/Config.cpp
+  src/core/Dialogue.cpp
   src/core/FileUtil.cpp
   src/core/PetModel.cpp
   src/core/StateMachine.cpp
@@ -105,6 +106,7 @@ set(KUJIRA_SOURCES
   src/agents/Registry.cpp
   src/agents/claude-code/ClaudeCodeAdapter.cpp
   src/agents/claude-code/ClaudeCodeInstaller.cpp
+  src/ui/PetOverlay.cpp
   src/ui/SettingsWindow.cpp
   src/ui/Theme.cpp
 )
