@@ -173,10 +173,23 @@ void MakeToolWindow(GLFWwindow* window)
 
 uint64_t ProcessMemoryBytes()
 {
-    PROCESS_MEMORY_COUNTERS_EX pmc{};
+    // Private working set: the "Memory" column in Task Manager. The field exists since
+    // Windows 10 1809 (PROCESS_MEMORY_COUNTERS_EX2); declared here so older SDKs build.
+    struct Counters
+    {
+        PROCESS_MEMORY_COUNTERS_EX base;
+        SIZE_T privateWorkingSetSize;
+        ULONG64 sharedCommitUsage;
+    } pmc{};
+    pmc.base.cb = sizeof(pmc);
     if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc), sizeof(pmc)))
     {
-        return pmc.PrivateUsage;
+        return pmc.privateWorkingSetSize;
+    }
+    PROCESS_MEMORY_COUNTERS basic{};
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &basic, sizeof(basic)))
+    {
+        return basic.WorkingSetSize;
     }
     return 0;
 }
