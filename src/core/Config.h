@@ -28,7 +28,7 @@ struct Config
 
     // Rendering
     int activeFps = 60;
-    int idleFps = 30;
+    int idleFps = 60;
     int sleepMinutes = 5;
 
     // Speech bubble
