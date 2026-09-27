@@ -124,6 +124,32 @@ target_link_libraries(Kujira PRIVATE
   Framework glfw imgui httplib_header nlohmann_json::nlohmann_json OpenGL::GL)
 
 if(WIN32)
+  # Version info (name shown in Task Manager) and the exe icon. The icon is made at
+  # build time from the local model's icon.png, so no model artwork lives in git.
+  # GLFW uses the resource named GLFW_ICON for all of its windows.
+  set(_rc "${CMAKE_CURRENT_BINARY_DIR}/kujira.rc")
+  set(_rc_icon "")
+  file(GLOB _model_icons "${CMAKE_CURRENT_SOURCE_DIR}/assets/models/*/icon.png")
+  if(_model_icons)
+    list(SORT _model_icons)
+    list(GET _model_icons 0 _icon_png)
+    add_executable(png2ico tools/png2ico.cpp)
+    target_include_directories(png2ico PRIVATE "${CUBISM_SDK_DIR}/Samples/OpenGL/thirdParty/stb")
+    target_link_libraries(png2ico PRIVATE shell32)
+    set(_ico "${CMAKE_CURRENT_BINARY_DIR}/kujira.ico")
+    add_custom_command(OUTPUT "${_ico}"
+      COMMAND png2ico "${_icon_png}" "${_ico}"
+      DEPENDS png2ico "${_icon_png}"
+      COMMENT "Making kujira.ico from ${_icon_png}")
+    set(_rc_icon "GLFW_ICON ICON \"kujira.ico\"\n")
+    target_sources(Kujira PRIVATE "${_ico}")
+    set_source_files_properties("${_rc}" PROPERTIES OBJECT_DEPENDS "${_ico}")
+  endif()
+  set(KUJIRA_RC_ICON "${_rc_icon}")
+  string(REPLACE "." "," KUJIRA_VERSION_COMMA "${PROJECT_VERSION}")
+  configure_file(src/platform/win/kujira.rc.in "${_rc}" @ONLY)
+  target_sources(Kujira PRIVATE "${_rc}")
+
   target_compile_definitions(Kujira PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE)
   target_link_libraries(Kujira PRIVATE ws2_32 psapi shell32 ole32 uuid advapi32 winmm)
   # No console window; keep a normal main() entry point.

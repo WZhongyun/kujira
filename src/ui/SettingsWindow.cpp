@@ -51,7 +51,8 @@ bool NameCombo(const char* id, std::string& value, const std::vector<std::string
     return changed;
 }
 
-unsigned int LoadIcon(const fs::path& path)
+// Loads the model icon as a texture for the sidebar and as the window icon.
+unsigned int LoadIcon(GLFWwindow* window, const fs::path& path)
 {
     auto bytes = FileUtil::ReadText(path);
     if (!bytes) return 0;
@@ -59,6 +60,8 @@ unsigned int LoadIcon(const fs::path& path)
     unsigned char* px = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(bytes->data()),
                                               static_cast<int>(bytes->size()), &w, &h, &n, 4);
     if (!px) return 0;
+    GLFWimage image{ w, h, px };
+    glfwSetWindowIcon(window, 1, &image);
     GLuint tex = 0;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -160,7 +163,7 @@ void SettingsWindow::Open()
 
     if (const PetModel* model = _host.Model())
     {
-        _iconTexture = LoadIcon(model->Directory() / "icon.png");
+        _iconTexture = LoadIcon(_window, model->Directory() / "icon.png");
     }
     const Config& config = _host.GetConfig();
     _portEdit = config.port;
