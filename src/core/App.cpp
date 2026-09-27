@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -85,6 +86,37 @@ float WindowScale(GLFWwindow* window)
 #endif
 }
 
+// Final replies are Markdown; the bubble shows plain text on as few lines as possible.
+std::string PlainText(const std::string& markdown)
+{
+    std::string out;
+    bool lineStart = true;
+    for (size_t i = 0; i < markdown.size(); ++i)
+    {
+        const char c = markdown[i];
+        if (c == '\n' || c == '\r' || c == '\t')
+        {
+            if (!out.empty() && out.back() != ' ') out += ' ';
+            lineStart = true;
+            continue;
+        }
+        if (lineStart && (c == '#' || c == '>' || ((c == '-' || c == '*') && i + 1 < markdown.size() && markdown[i + 1] == ' ')))
+        {
+            continue;
+        }
+        if (c == '`' || (c == '*' && i + 1 < markdown.size() && markdown[i + 1] == '*'))
+        {
+            if (c == '*') ++i;
+            continue;
+        }
+        if (c == ' ' && (out.empty() || out.back() == ' ')) continue;
+        lineStart = false;
+        out += c;
+    }
+    while (!out.empty() && out.back() == ' ') out.pop_back();
+    return out;
+}
+
 std::string StripSuffix(std::string name, const std::string& suffix)
 {
     if (name.size() > suffix.size() && name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0)
@@ -104,6 +136,7 @@ App::~App()
     if (_window)
     {
         glfwMakeContextCurrent(_window);
+        _overlay.Shutdown();
         _model.reset();
         Csm::Rendering::CubismOffscreenManager_OpenGLES2::ReleaseInstance();
         Csm::CubismFramework::Dispose();
@@ -171,6 +204,8 @@ bool App::InitWindow()
         _config.windowY = savedY;
     }
 
+    _overlay.Init(_window);
+    _layout.scale = scale;
     Platform::MakeToolWindow(_window);
     glfwShowWindow(_window);
     Platform::SetStayOnTop(_window, _config.topmost && _config.keepOnTop, _config.hideForFullscreen);
@@ -290,10 +325,14 @@ void App::Preview(const std::string& key)
 void App::MouseButtonCallback(GLFWwindow* window, int button, int action, int)
 {
     auto* app = static_cast<App*>(glfwGetWindowUserPointer(window));
+    double cx, cy;
+    glfwGetCursorPos(window, &cx, &cy);
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
     {
-        double cx, cy;
-        glfwGetCursorPos(window, &cx, &cy);
+        // Toolbar buttons and the bubble take the click; everything else is the model.
+        app->_pressedButton = app->_overlay.ButtonAt(cx, cy);
+        app->_pressedBubble = app->_pressedButton == PetOverlay::Button::None && app->_overlay.BubbleContains(cx, cy);
+        if (app->_pressedButton != PetOverlay::Button::None || app->_pressedBubble) return;
         glfwGetWindowPos(window, &app->_pressWinX, &app->_pressWinY);
         app->_pressScreenX = app->_pressWinX + cx;
         app->_pressScreenY = app->_pressWinY + cy;
@@ -302,13 +341,27 @@ void App::MouseButtonCallback(GLFWwindow* window, int button, int action, int)
     }
     else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
     {
+        if (app->_pressedButton != PetOverlay::Button::None)
+        {
+            if (app->_overlay.ButtonAt(cx, cy) == app->_pressedButton) app->OnToolbarButton(app->_pressedButton);
+            app->_pressedButton = PetOverlay::Button::None;
+            return;
+        }
+        if (app->_pressedBubble)
+        {
+            app->_pressedBubble = false;
+            app->_overlay.Dismiss();
+            return;
+        }
         if (app->_pressed && !app->_dragging)
         {
             app->Preview(StateMachine::PokeKey());
+            app->Say(app->_dialogue.Pick("click"), 3.0f, PetOverlay::Priority::Interaction);
         }
         if (app->_dragging)
         {
             app->SaveWindowPosition();
+            app->Say(app->_dialogue.Pick("drag"), 3.0f, PetOverlay::Priority::Interaction);
         }
         app->_pressed = false;
         app->_dragging = false;
@@ -349,9 +402,13 @@ void App::UpdateInput(double)
     {
         if (_config.lookAtMouse && wh > 0)
         {
-            // Relative to her face (upper third of the window), saturating a window height away.
-            const float nx = static_cast<float>((cx - ww * 0.5) / wh);
-            const float ny = static_cast<float>(-(cy - wh * 0.35) / wh);
+            // Relative to her face (upper third of the model), saturating a model height away.
+            const PetOverlay::Rect& m = _layout.model;
+            const double mh = m.h > 0 ? m.h : wh;
+            const double mx = m.w > 0 ? m.x + m.w * 0.5 : ww * 0.5;
+            const double my = m.h > 0 ? m.y + m.h * 0.35 : wh * 0.35;
+            const float nx = static_cast<float>((cx - mx) / mh);
+            const float ny = static_cast<float>(-(cy - my) / mh);
             _model->LookAt(std::clamp(nx, -1.0f, 1.0f), std::clamp(ny, -1.0f, 1.0f));
         }
         else
@@ -390,6 +447,12 @@ void App::UpdateHitTest(int fbWidth, int fbHeight)
             _hovering = false;
         }
         wantPassthrough = !_hovering;
+        _hoverModel = hit && (_layout.model.w <= 0 || _layout.model.Contains(cx, cy)) &&
+                      _overlay.ButtonAt(cx, cy) == PetOverlay::Button::None && !_overlay.BubbleContains(cx, cy);
+    }
+    else
+    {
+        _hoverModel = false;
     }
     if (wantPassthrough != _passthrough)
     {
@@ -401,15 +464,49 @@ void App::UpdateHitTest(int fbWidth, int fbHeight)
 void App::FitWindowToModel()
 {
     if (!_model || !_model->BoundsReady()) return;
+    // Model at the bottom, room for the speech bubble above it and for the
+    // toolbar beside it (mirrored on the other side so she stays centred).
     const float scale = WindowScale(_window);
-    const int h = static_cast<int>(_config.windowHeight * scale);
-    const int w = std::max(40, static_cast<int>(std::lround(h * _model->Aspect())));
+    const float modelH = std::round(_config.windowHeight * scale);
+    const float modelW = std::max(40.0f, std::round(modelH * _model->Aspect()));
+    const bool bubbles = _config.bubbleMode != "off";
+    const float side = _config.showToolbar ? std::round(40 * scale) : 0.0f;
+    const float bubbleH = bubbles ? std::round(120 * scale) : 0.0f;
+    float fw = modelW + 2 * side;
+    if (bubbles) fw = std::max(fw, std::round(260 * scale));
+    const int w = static_cast<int>(fw);
+    const int h = static_cast<int>(modelH + bubbleH);
+
     int x, y, oldW, oldH;
     glfwGetWindowPos(_window, &x, &y);
     glfwGetWindowSize(_window, &oldW, &oldH);
     // Keep the bottom centre where it was.
-    glfwSetWindowSize(_window, w, h);
-    glfwSetWindowPos(_window, x + (oldW - w) / 2, y + (oldH - h));
+    if (w != oldW || h != oldH)
+    {
+        int nx = x + (oldW - w) / 2, ny = y + (oldH - h);
+        // Growing can push the window past the screen edge; keep it on the monitor's work area.
+        int count = 0;
+        GLFWmonitor** monitors = glfwGetMonitors(&count);
+        const int cx = x + oldW / 2, cy = y + oldH / 2;
+        for (int i = 0; i < count; ++i)
+        {
+            int ax, ay, aw, ah;
+            glfwGetMonitorWorkarea(monitors[i], &ax, &ay, &aw, &ah);
+            if (cx >= ax && cx < ax + aw && cy >= ay && cy < ay + ah)
+            {
+                nx = std::clamp(nx, ax, std::max(ax, ax + aw - w));
+                ny = std::clamp(ny, ay, std::max(ay, ay + ah - h));
+                break;
+            }
+        }
+        glfwSetWindowSize(_window, w, h);
+        glfwSetWindowPos(_window, nx, ny);
+    }
+    _layout.model = { std::round((w - modelW) * 0.5f), bubbleH, modelW, modelH };
+    _layout.bubbleTop = 4 * scale;
+    _layout.bubbleMaxW = std::min(w - 8 * scale, 300 * scale);
+    _layout.scale = scale;
+    _layout.toolbar = _config.showToolbar;
     _fitted = true;
 }
 
@@ -437,11 +534,30 @@ void App::RenderPet()
             lastH = fbh;
         }
         _model->Update(dt);
-        _model->Draw(fbw, fbh);
+        if (_fitted)
+        {
+            int ww, wh;
+            glfwGetWindowSize(_window, &ww, &wh);
+            const float rx = static_cast<float>(fbw) / std::max(1, ww), ry = static_cast<float>(fbh) / std::max(1, wh);
+            const PetOverlay::Rect& m = _layout.model;
+            _model->Draw(fbw, fbh, m.x * rx, fbh - (m.y + m.h) * ry, m.w * rx, m.h * ry);
+        }
+        else
+        {
+            _model->Draw(fbw, fbh);
+        }
         if (!_fitted && _model->BoundsReady())
         {
             FitWindowToModel();
         }
+    }
+    if (_fitted)
+    {
+        double cx, cy;
+        glfwGetCursorPos(_window, &cx, &cy);
+        const bool overToolbar = _overlay.ButtonAt(cx, cy) != PetOverlay::Button::None;
+        if (_hoverModel || overToolbar) _toolbarUntil = now + 1.2;
+        _overlay.Render(_layout, now, now < _toolbarUntil && !_dragging, _config.quietMode, cx, cy);
     }
     UpdateHitTest(fbw, fbh);
     glfwSwapBuffers(_window);
@@ -487,7 +603,160 @@ void App::ConfigChanged()
     ApplyHolds();
     if (_model) _model->SetIdleMotion(_config.idleMotion);
     ApplyAction(_states->CurrentKey());
+    if (_fitted) FitWindowToModel();  // bubble / toolbar space may have changed
     _config.Save();
+}
+
+void App::DialogueChanged()
+{
+    _dialogue.Save();
+}
+
+void App::SayPreview(const std::string& text)
+{
+    if (_fitted && _config.bubbleMode != "off")
+    {
+        _overlay.Say(text, _config.bubbleSeconds, PetOverlay::Priority::Result, glfwGetTime());
+    }
+}
+
+void App::Say(const std::string& text, float seconds, PetOverlay::Priority priority)
+{
+    using P = PetOverlay::Priority;
+    if (text.empty() || !_fitted) return;
+    if (_config.bubbleMode == "off") return;
+    if (_config.bubbleMode == "important" && priority < P::Result) return;
+    if (_config.quietMode && priority <= P::Interaction) return;
+    if (!_config.interactionText && priority == P::Interaction) return;
+    _overlay.Say(text, seconds, priority, glfwGetTime());
+}
+
+void App::SayForEvent(const PetEvent& e)
+{
+    using K = PetEvent::Kind;
+    using P = PetOverlay::Priority;
+    const float seconds = _config.bubbleSeconds;
+    switch (e.kind)
+    {
+    case K::SessionStart: Say(_dialogue.Pick("agentStart"), seconds, P::Status); break;
+    case K::SessionEnd: Say(_dialogue.Pick("farewell"), seconds, P::Status); break;
+    case K::ToolRead:
+        if (!e.text.empty()) Say(_dialogue.Pick("reading", e.text), seconds, P::Status);
+        break;
+    case K::ToolWrite:
+        if (!e.text.empty()) Say(_dialogue.Pick("writing", e.text), seconds, P::Status);
+        break;
+    case K::ToolRun:
+        if (!e.text.empty()) Say(_dialogue.Pick("running", e.text), seconds, P::Status);
+        break;
+    case K::Attention:
+        // Stays up until she stops waiting (or the bubble is clicked).
+        Say(e.text.empty() ? _dialogue.Pick("attention") : e.text, 0, P::Attention);
+        break;
+    case K::Stop:
+    {
+        std::string reply = PlainText(e.text);
+        Say(reply.empty() ? _dialogue.Pick("done") : reply, std::max(8.0f, seconds * 1.6f), P::Result);
+        break;
+    }
+    case K::PromptSubmit:
+    case K::ToolDone:
+        if (_overlay.CurrentPriority() == P::Attention) _overlay.ClearSticky();  // the user answered
+        break;
+    default:
+        break;
+    }
+}
+
+void App::UpdateTalk(double now)
+{
+    using P = PetOverlay::Priority;
+    using S = StateMachine::State;
+    if (!_fitted) return;
+
+    if (!_greeted)
+    {
+        _greeted = true;
+        Say(_dialogue.Pick("greeting"), _config.bubbleSeconds, P::Chatter);
+    }
+
+    // Falling asleep / waking up, and the end of waiting for the user.
+    const S state = _states->CurrentState();
+    if (state != _shownState)
+    {
+        if (_shownState == S::Attention && _overlay.CurrentPriority() == P::Attention) _overlay.ClearSticky();
+        if (state == S::Sleeping) Say(_dialogue.Pick("sleep"), _config.bubbleSeconds, P::Chatter);
+        else if (_shownState == S::Sleeping) Say(_dialogue.Pick("wake"), _config.bubbleSeconds, P::Chatter);
+        _shownState = state;
+    }
+
+    // Hovering over her for a moment.
+    if (_hoverModel && !_pressed)
+    {
+        if (_hoverStart == 0) _hoverStart = now;
+        if (now - _hoverStart > 1.5 && now - _lastHoverLine > 30)
+        {
+            _lastHoverLine = now;
+            Say(_dialogue.Pick("hover"), 3.0f, P::Interaction);
+        }
+    }
+    else
+    {
+        _hoverStart = 0;
+    }
+
+    // Small talk every ~chatMinutes while nothing else is going on.
+    if (_config.chatMinutes <= 0)
+    {
+        _nextChat = 0;
+        return;
+    }
+    const double interval = _config.chatMinutes * 60.0;
+    if (_nextChat == 0)
+    {
+        _nextChat = now + interval * std::uniform_real_distribution<double>(0.7, 1.3)(_rng);
+    }
+    if (now < _nextChat) return;
+    if (_states->IsBusy() || state == S::Sleeping || _overlay.BubbleVisible(now) || _pressed)
+    {
+        _nextChat = now + 60;  // try again in a minute
+        return;
+    }
+    std::time_t t = std::time(nullptr);
+    std::tm local{};
+#ifdef _WIN32
+    localtime_s(&local, &t);
+#else
+    localtime_r(&t, &local);
+#endif
+    std::string key = std::uniform_real_distribution<double>(0, 1)(_rng) < 0.65 ? Dialogue::TimeOfDayKey(local.tm_hour) : "idle";
+    std::string line = _dialogue.Pick(key);
+    if (line.empty()) line = _dialogue.Pick(key == "idle" ? Dialogue::TimeOfDayKey(local.tm_hour) : "idle");
+    Say(line, _config.bubbleSeconds, P::Chatter);
+    _nextChat = now + interval * std::uniform_real_distribution<double>(0.7, 1.3)(_rng);
+}
+
+void App::OnToolbarButton(PetOverlay::Button button)
+{
+    switch (button)
+    {
+    case PetOverlay::Button::Settings:
+        _openSettingsRequested = true;
+        break;
+    case PetOverlay::Button::Quiet:
+        _config.quietMode = !_config.quietMode;
+        _config.Save();
+        if (_config.bubbleMode != "off")
+        {
+            _overlay.Say(_config.quietMode ? "好的，我安静一会儿" : "我回来啦～", 2.5f, PetOverlay::Priority::Result, glfwGetTime());
+        }
+        break;
+    case PetOverlay::Button::Quit:
+        _quit = true;
+        break;
+    default:
+        break;
+    }
 }
 
 void App::WindowSizeChanged()
@@ -528,6 +797,7 @@ int App::Run()
     }
 
     _config = Config::Load();
+    _dialogue = Dialogue::Load();
     if (Platform::AutostartSupported())
     {
         _config.autostart = Platform::IsAutostartEnabled();
@@ -561,12 +831,14 @@ int App::Run()
         for (auto& event : _queue.Drain())
         {
             _states->OnEvent(event, frameStart);
+            SayForEvent(event);
         }
         _states->Update(frameStart, _config.sleepMinutes);
         if (_states->ConsumeChanged())
         {
             ApplyAction(_states->CurrentKey());
         }
+        UpdateTalk(frameStart);
 
         if (frameStart - _lastStayOnTopCheck >= 1.0)
         {
@@ -594,7 +866,8 @@ int App::Run()
         // Frame pacing: full speed while something happens, slow when idle, slower asleep.
         int fps = _config.idleFps;
         if (_states->IsBusy() || _states->CurrentKey() != StateMachine::Key(_states->CurrentState()) || _pressed ||
-            _hovering || _settings->IsOpen())
+            _hovering || _settings->IsOpen() || _overlay.BubbleVisible(frameStart) || _overlay.Animating() ||
+            frameStart < _toolbarUntil)
         {
             fps = _config.activeFps;
         }

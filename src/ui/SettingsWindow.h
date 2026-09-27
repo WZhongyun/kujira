@@ -30,6 +30,7 @@ private:
     void DrawSidebar();
     void DrawGeneral();
     void DrawAppearance();
+    void DrawDialogue();
     void DrawActions();
     void DrawAgents();
     void DrawAbout();
@@ -55,4 +56,9 @@ private:
     bool _hookMessageOk = true;
     int _portEdit = 0;
     char _modelDirEdit[1024] = {};
+
+    // Dialogue page
+    int _dialogueCategory = 0;
+    int _dialogueLoaded = -1;
+    char _dialogueEdit[8192] = {};
 };

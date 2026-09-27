@@ -25,7 +25,9 @@ public:
 
     void Update(float deltaSeconds);
     // Draws the model fitted to the framebuffer (bounds computed on the first frames).
-    void Draw(int framebufferWidth, int framebufferHeight);
+    // Draws the model fitted into a rectangle of the framebuffer (pixels, origin
+    // bottom-left); an empty rectangle means the whole framebuffer.
+    void Draw(int framebufferWidth, int framebufferHeight, float rectX = 0, float rectY = 0, float rectW = 0, float rectH = 0);
 
     // -1..1 in both axes, where the model should look.
     void LookAt(float x, float y);
