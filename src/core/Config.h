@@ -27,8 +27,8 @@ struct Config
     bool autostart = false;
 
     // Rendering
-    int activeFps = 45;
-    int idleFps = 12;
+    int activeFps = 60;
+    int idleFps = 30;
     int sleepMinutes = 5;
 
     // Model

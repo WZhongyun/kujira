@@ -125,7 +125,7 @@ target_link_libraries(Kujira PRIVATE
 
 if(WIN32)
   target_compile_definitions(Kujira PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE)
-  target_link_libraries(Kujira PRIVATE ws2_32 psapi shell32 ole32 uuid advapi32)
+  target_link_libraries(Kujira PRIVATE ws2_32 psapi shell32 ole32 uuid advapi32 winmm)
   # No console window; keep a normal main() entry point.
   set_target_properties(Kujira PROPERTIES WIN32_EXECUTABLE TRUE)
   if(MSVC)

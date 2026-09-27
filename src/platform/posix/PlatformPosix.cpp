@@ -154,6 +154,11 @@ void UnmapFile(MappedFile& file)
     file = {};
 }
 
+void WaitEvents(double timeout)
+{
+    glfwWaitEventsTimeout(timeout);
+}
+
 void SetStayOnTop(GLFWwindow*, bool, bool) {}
 void UpdateStayOnTop() {}
 

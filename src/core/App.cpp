@@ -606,7 +606,7 @@ int App::Run()
         const double frameEnd = frameStart + 1.0 / fps;
         for (double now = glfwGetTime(); now < frameEnd && !_quit; now = glfwGetTime())
         {
-            glfwWaitEventsTimeout(frameEnd - now);
+            Platform::WaitEvents(frameEnd - now);
         }
         glfwPollEvents();
     }
