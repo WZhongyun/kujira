@@ -212,14 +212,29 @@ void SettingsWindow::SectionTitle(const char* title, const char* caption)
 
 void SettingsWindow::Row(const char* label, const char* hint)
 {
+    const float column = kLabelColumn * ImGui::GetStyle().FontScaleDpi;
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted(label);
     if (hint)
     {
         ImGui::SameLine();
-        ImGui::TextDisabled("%s", hint);
+        // Keep the hint out of the control column: cut it with an ellipsis and show it whole on hover.
+        const float room = column - ImGui::GetCursorPosX() - 12 * ImGui::GetStyle().FontScaleDpi;
+        std::string shown = hint;
+        if (ImGui::CalcTextSize(hint).x > room)
+        {
+            size_t len = shown.size();
+            while (len > 0)
+            {
+                do { --len; } while (len > 0 && (static_cast<unsigned char>(shown[len]) & 0xC0) == 0x80);
+                if (ImGui::CalcTextSize((shown.substr(0, len) + "…").c_str()).x <= room) break;
+            }
+            shown = shown.substr(0, len) + "…";
+        }
+        ImGui::TextDisabled("%s", shown.c_str());
+        if (shown != hint && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", hint);
     }
-    ImGui::SameLine(kLabelColumn * ImGui::GetStyle().FontScaleDpi);
+    ImGui::SameLine(column);
     ImGui::SetNextItemWidth(-1);
 }
 
@@ -331,7 +346,7 @@ void SettingsWindow::DrawGeneral()
     changed |= ImGui::Checkbox("##topmost", &c.topmost);
 #ifdef _WIN32
     ImGui::BeginDisabled(!c.topmost);
-    Row("保持在任务栏上方", "（点任务栏后自动回到最上层）");
+    Row("保持在任务栏上方", "（点过任务栏后自动回到上层）");
     changed |= ImGui::Checkbox("##keepontop", &c.keepOnTop);
     ImGui::EndDisabled();
     Row("全屏程序时隐藏", "（看视频、玩游戏时）");
