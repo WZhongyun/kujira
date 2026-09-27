@@ -138,6 +138,7 @@ if(WIN32)
     add_executable(png2ico tools/png2ico.cpp)
     target_include_directories(png2ico PRIVATE "${CUBISM_SDK_DIR}/Samples/OpenGL/thirdParty/stb")
     target_link_libraries(png2ico PRIVATE shell32)
+    target_compile_definitions(png2ico PRIVATE NOMINMAX)
     set(_ico "${CMAKE_CURRENT_BINARY_DIR}/kujira.ico")
     add_custom_command(OUTPUT "${_ico}"
       COMMAND png2ico "${_icon_png}" "${_ico}"
