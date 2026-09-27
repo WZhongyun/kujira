@@ -4,9 +4,24 @@
 #include <cfloat>
 #include <cmath>
 
+#include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#if defined(__APPLE__) || defined(KUJIRA_OVERLAY_GL2)
+// The pet window has a legacy OpenGL 2.1 context on macOS (the Cubism OpenGL
+// renderer needs GLSL 1.20), which the OpenGL 3 backend does not support there.
+#include <imgui_impl_opengl2.h>
+#define OverlayBackendInit() ImGui_ImplOpenGL2_Init()
+#define OverlayBackendShutdown() ImGui_ImplOpenGL2_Shutdown()
+#define OverlayBackendNewFrame() ImGui_ImplOpenGL2_NewFrame()
+#define OverlayBackendRender(data) ImGui_ImplOpenGL2_RenderDrawData(data)
+#else
 #include <imgui_impl_opengl3.h>
+#define OverlayBackendInit() ImGui_ImplOpenGL3_Init(nullptr)
+#define OverlayBackendShutdown() ImGui_ImplOpenGL3_Shutdown()
+#define OverlayBackendNewFrame() ImGui_ImplOpenGL3_NewFrame()
+#define OverlayBackendRender(data) ImGui_ImplOpenGL3_RenderDrawData(data)
+#endif
 
 #include "ui/Theme.h"
 
@@ -77,7 +92,7 @@ bool PetOverlay::Init(GLFWwindow* window)
     }
     if (io.Fonts->Fonts.empty()) io.Fonts->AddFontDefault();
 
-    const bool ok = ImGui_ImplOpenGL3_Init(nullptr);
+    const bool ok = OverlayBackendInit();
     ImGui::SetCurrentContext(previous);
     if (!ok) Shutdown();
     return ok;
@@ -89,7 +104,7 @@ void PetOverlay::Shutdown()
     ImGuiContext* previous = ImGui::GetCurrentContext();
     ImGuiContext* self = _imgui;
     ImGui::SetCurrentContext(self);
-    ImGui_ImplOpenGL3_Shutdown();
+    OverlayBackendShutdown();
     ImGui::DestroyContext(self);
     _imgui = nullptr;
     ImGui::SetCurrentContext(previous == self ? nullptr : previous);
@@ -195,7 +210,7 @@ void PetOverlay::Render(const Layout& layout, double now, bool showToolbar, bool
     _toolbarAlpha = Approach(_toolbarAlpha, toolbarTarget, dt / 0.2f);
     _animating = _bubbleAlpha != bubbleTarget || _toolbarAlpha != toolbarTarget;
 
-    ImGui_ImplOpenGL3_NewFrame();
+    OverlayBackendNewFrame();
     ImGui::NewFrame();
     ImDrawList* dl = ImGui::GetForegroundDrawList();
     ImFont* font = io.Fonts->Fonts[0];
@@ -303,6 +318,17 @@ void PetOverlay::Render(const Layout& layout, double now, bool showToolbar, bool
     }
 
     ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+#if defined(__APPLE__) || defined(KUJIRA_OVERLAY_GL2)
+    // The fixed-function backend does not reset shader state; clear what the
+    // Cubism renderer leaves bound so its vertex arrays are not reused.
+    glUseProgram(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    GLint attribs = 0;
+    glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &attribs);
+    for (GLint i = 0; i < attribs; ++i) glDisableVertexAttribArray(static_cast<GLuint>(i));
+    glActiveTexture(GL_TEXTURE0);
+#endif
+    OverlayBackendRender(ImGui::GetDrawData());
     ImGui::SetCurrentContext(previous);
 }

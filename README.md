@@ -9,7 +9,7 @@
 - 设置窗口（Dear ImGui）按需创建、关闭即销毁
 - 非官方个人工具，与 Anthropic 及任何 Agent 厂商无关
 
-目前状态：Windows 为主力平台（首次实机测试中），Linux 可用于开发调试，macOS（Metal）尚未移植。
+目前状态：Windows 为主力平台（首次实机测试中），Linux 可用于开发调试，macOS 已有试验版（OpenGL，待实机测试）。
 
 ## 快速开始
 

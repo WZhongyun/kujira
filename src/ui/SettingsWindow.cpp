@@ -344,12 +344,19 @@ void SettingsWindow::DrawGeneral()
     }
     Row("窗口始终置顶");
     changed |= ImGui::Checkbox("##topmost", &c.topmost);
-#ifdef _WIN32
+#if defined(_WIN32)
     ImGui::BeginDisabled(!c.topmost);
     Row("保持在任务栏上方", "（点过任务栏后自动回到上层）");
     changed |= ImGui::Checkbox("##keepontop", &c.keepOnTop);
     ImGui::EndDisabled();
     Row("全屏程序时隐藏", "（看视频、玩游戏时）");
+    changed |= ImGui::Checkbox("##fullscreen", &c.hideForFullscreen);
+#elif defined(__APPLE__)
+    ImGui::BeginDisabled(!c.topmost);
+    Row("保持在程序坞上方", "（可以站在 Dock 上）");
+    changed |= ImGui::Checkbox("##keepontop", &c.keepOnTop);
+    ImGui::EndDisabled();
+    Row("全屏程序时隐藏", "（全屏应用的桌面里不显示）");
     changed |= ImGui::Checkbox("##fullscreen", &c.hideForFullscreen);
 #endif
     Row("透明区域点击穿透", "（关掉则整个窗口都可点）");
