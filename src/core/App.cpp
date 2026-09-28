@@ -159,7 +159,8 @@ bool App::InitWindow()
     glfwWindowHint(GLFW_FLOATING, _config.topmost ? GLFW_TRUE : GLFW_FALSE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE);
-    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+    // No GLFW_SCALE_TO_MONITOR: the window is sized from the model, and a scaling
+    // change (another monitor) is handled by ContentScaleCallback + FitWindowToModel.
 
     const int h = _config.windowHeight;
     _window = glfwCreateWindow(h, h, "Kujira", nullptr, nullptr);
@@ -170,6 +171,7 @@ bool App::InitWindow()
     }
     glfwSetWindowUserPointer(_window, this);
     glfwSetMouseButtonCallback(_window, MouseButtonCallback);
+    glfwSetWindowContentScaleCallback(_window, ContentScaleCallback);
     glfwMakeContextCurrent(_window);
     glfwSwapInterval(0);
 
@@ -370,6 +372,11 @@ void App::MouseButtonCallback(GLFWwindow* window, int button, int action, int)
     {
         app->_openSettingsRequested = true;
     }
+}
+
+void App::ContentScaleCallback(GLFWwindow* window, float, float)
+{
+    static_cast<App*>(glfwGetWindowUserPointer(window))->_scaleChanged = true;
 }
 
 void App::UpdateInput(double)
@@ -844,6 +851,14 @@ int App::Run()
         {
             _lastStayOnTopCheck = frameStart;
             Platform::UpdateStayOnTop();
+        }
+
+        // Moved to a monitor with other scaling: resize once she is let go, not mid-drag.
+        if (_scaleChanged && !_pressed && _fitted)
+        {
+            _scaleChanged = false;
+            FitWindowToModel();
+            SaveWindowPosition();
         }
 
         const bool visible = glfwGetWindowAttrib(_window, GLFW_VISIBLE) && !glfwGetWindowAttrib(_window, GLFW_ICONIFIED);

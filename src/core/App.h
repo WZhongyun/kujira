@@ -86,6 +86,7 @@ private:
     void OnToolbarButton(PetOverlay::Button button);
 
     static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+    static void ContentScaleCallback(GLFWwindow* window, float xscale, float yscale);
 
     Config _config;
     GLFWwindow* _window = nullptr;
@@ -102,6 +103,7 @@ private:
 
     bool _quit = false;
     bool _fitted = false;
+    bool _scaleChanged = false;
     bool _passthrough = false;
     bool _hovering = false;
     int _hoverMisses = 0;

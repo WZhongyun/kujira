@@ -7,6 +7,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <imgui_freetype.h>
 #if defined(__APPLE__) || defined(KUJIRA_OVERLAY_GL2)
 // The pet window has a legacy OpenGL 2.1 context on macOS (the Cubism OpenGL
 // renderer needs GLSL 1.20), which the OpenGL 3 backend does not support there.
@@ -87,6 +88,8 @@ bool PetOverlay::Init(GLFWwindow* window)
         ImFontConfig cfg;
         cfg.FontNo = index;
         cfg.FontDataOwnedByAtlas = false;
+        // FreeType with light hinting: snaps strokes vertically, crisper small text at 100% scale.
+        cfg.FontLoaderFlags = ImGuiFreeTypeLoaderFlags_LightHinting;
         if (io.Fonts->AddFontFromMemoryTTF(_fontFile.data, static_cast<int>(_fontFile.size), kFontSize, &cfg)) break;
         Platform::UnmapFile(_fontFile);
     }
