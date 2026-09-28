@@ -360,7 +360,7 @@ void SettingsWindow::DrawGeneral()
     Row("全屏程序时隐藏", "（全屏应用里不显示）");
     changed |= ImGui::Checkbox("##fullscreen", &c.hideForFullscreen);
 #endif
-    Row("透明区域点击穿透", "（关掉则整窗可点）");
+    Row("透明区域点击穿透", "（空白处不挡鼠标）");
     changed |= ImGui::Checkbox("##passthrough", &c.clickThrough);
     Row("视线跟随鼠标");
     changed |= ImGui::Checkbox("##look", &c.lookAtMouse);
