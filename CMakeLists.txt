@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(Kujira VERSION 0.1.0 LANGUAGES C CXX)
+if(APPLE)
+  # Before any add_subdirectory: directories added earlier would miss the language.
+  enable_language(OBJCXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -113,7 +117,6 @@ set(KUJIRA_SOURCES
 if(WIN32)
   list(APPEND KUJIRA_SOURCES src/platform/win/PlatformWin.cpp)
 elseif(APPLE)
-  enable_language(OBJCXX)
   list(APPEND KUJIRA_SOURCES src/platform/posix/PlatformPosix.cpp src/platform/mac/PlatformMac.mm)
 else()
   list(APPEND KUJIRA_SOURCES src/platform/posix/PlatformPosix.cpp)
