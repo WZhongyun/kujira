@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.20)
 project(Kujira VERSION 0.1.0 LANGUAGES C CXX)
 if(APPLE)
   # Before any add_subdirectory: directories added earlier would miss the language.
+  # OBJC first, so GLFW's .m files stay Objective-C (OBJCXX also claims .m otherwise).
+  enable_language(OBJC)
   enable_language(OBJCXX)
 endif()
 
