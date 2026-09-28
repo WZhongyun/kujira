@@ -213,6 +213,15 @@ void PetOverlay::Render(const Layout& layout, double now, bool showToolbar, bool
     OverlayBackendNewFrame();
     ImGui::NewFrame();
     ImDrawList* dl = ImGui::GetForegroundDrawList();
+#if defined(__APPLE__) || defined(KUJIRA_OVERLAY_GL2)
+    // The OpenGL 2 backend blends alpha like colour (alpha ends up squared). In a
+    // transparent window the compositor reads alpha as coverage, so soft edges and
+    // shadows came out wrong and the bubble looked blurry. Blend alpha the way the
+    // OpenGL 3 backend does; the backend restores the previous blend state afterwards.
+    dl->AddCallback([](const ImDrawList*, const ImDrawCmd*) {
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    }, nullptr);
+#endif
     ImFont* font = io.Fonts->Fonts[0];
     const float s = layout.scale;
     const float fontSize = kFontSize * s;
