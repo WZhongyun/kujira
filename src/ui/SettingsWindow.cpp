@@ -18,7 +18,7 @@
 
 namespace
 {
-constexpr int kWidth = 900;
+constexpr int kWidth = 960;
 constexpr int kHeight = 620;
 constexpr float kLabelColumn = 400.0f;
 
@@ -412,7 +412,15 @@ void SettingsWindow::DrawAppearance()
     ImGui::Separator();
     Row("模型文件夹", "（留空自动查找）");
     ImGui::InputText("##modeldir", _modelDirEdit, sizeof(_modelDirEdit));
-    ImGui::SetCursorPosX(kLabelColumn * ImGui::GetStyle().FontScaleDpi);
+    // Two buttons do not always fit in the control column (wide fonts, narrow window);
+    // then they start at the left edge instead of running off the page.
+    {
+        const ImGuiStyle& st = ImGui::GetStyle();
+        const float buttons = ImGui::CalcTextSize("重新加载模型").x + ImGui::CalcTextSize("打开模型文件夹").x +
+                              st.FramePadding.x * 4 + st.ItemSpacing.x;
+        const float column = kLabelColumn * st.FontScaleDpi;
+        if (column + buttons <= ImGui::GetContentRegionMax().x) ImGui::SetCursorPosX(column);
+    }
     if (Theme::PrimaryButton("重新加载模型"))
     {
         c.modelDir = _modelDirEdit;
@@ -658,7 +666,7 @@ void SettingsWindow::DrawAgents()
 
         Row("接入方式");
         int mode = c.claudeHookMode == "command" ? 1 : 0;
-        const char* modes[] = { "HTTP hook（推荐，零延迟）", "命令 hook + curl（兼容旧版本）" };
+        const char* modes[] = { "HTTP（推荐）", "命令 + curl（兼容旧版）" };
         if (ImGui::Combo("##mode", &mode, modes, 2))
         {
             c.claudeHookMode = mode == 1 ? "command" : "http";
