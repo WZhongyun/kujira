@@ -20,7 +20,7 @@ namespace
 {
 constexpr int kWidth = 900;
 constexpr int kHeight = 620;
-constexpr float kLabelColumn = 300.0f;
+constexpr float kLabelColumn = 370.0f;
 
 const char* kPages[] = { "常规", "外观与动画", "气泡与台词", "动作映射", "Agent 接入", "关于" };
 
@@ -328,7 +328,8 @@ void SettingsWindow::DrawSidebar()
         ImGui::TextColored(Theme::Hex(Theme::kError), "● 事件服务未启动");
     }
     ImGui::SetCursorPosX(16 * s);
-    ImGui::TextDisabled("内存 %.0f MB · %.0f fps", Platform::ProcessMemoryBytes() / (1024.0 * 1024.0), _host.CurrentFps());
+    ImGui::TextDisabled("%.0f MB · %.0f fps", Platform::ProcessMemoryBytes() / (1024.0 * 1024.0), _host.CurrentFps());
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("内存占用 · 当前帧率");
 }
 
 void SettingsWindow::DrawGeneral()

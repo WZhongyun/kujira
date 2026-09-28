@@ -66,7 +66,8 @@ target_link_libraries(imgui PUBLIC glfw)
 option(KUJIRA_OVERLAY_GL2 "Draw the pet overlay with the OpenGL 2 backend (always on for macOS)" OFF)
 if(APPLE OR KUJIRA_OVERLAY_GL2)
   target_sources(imgui PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl2.cpp)
-  target_compile_definitions(imgui PUBLIC GL_SILENCE_DEPRECATION KUJIRA_OVERLAY_GL2)
+  # INTERFACE: imgui_impl_opengl2.cpp defines GL_SILENCE_DEPRECATION itself.
+  target_compile_definitions(imgui INTERFACE GL_SILENCE_DEPRECATION KUJIRA_OVERLAY_GL2)
   target_link_libraries(imgui PUBLIC OpenGL::GL)
 endif()
 
