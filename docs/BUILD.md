@@ -7,7 +7,7 @@
 - Windows 10 / 11，64 位
 - Visual Studio 2022 或更新版本，安装「使用 C++ 的桌面开发」工作负载（包含 MSVC 和 CMake）
 - Git（CMake 会用它下载 Dear ImGui 和 cpp-httplib）
-- 能访问 GitHub 的网络（首次配置时下载 GLFW、GLEW、ImGui、cpp-httplib、nlohmann/json）
+- 能访问 GitHub 的网络（首次配置时下载 GLFW、GLEW、ImGui、FreeType、cpp-httplib、nlohmann/json）
 
 ### 步骤
 

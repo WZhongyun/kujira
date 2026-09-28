@@ -7,6 +7,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <imgui_freetype.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
@@ -112,13 +113,6 @@ void SettingsWindow::Open()
     glfwMakeContextCurrent(_window);
     glfwSwapInterval(0);
 
-    float scale = 1.0f;
-#ifndef __APPLE__
-    float sx = 1, sy = 1;
-    glfwGetWindowContentScale(_window, &sx, &sy);
-    scale = sy > 0 ? sy : 1.0f;
-#endif
-
     IMGUI_CHECKVERSION();
     _imgui = ImGui::CreateContext();
     ImGui::SetCurrentContext(_imgui);
@@ -126,10 +120,8 @@ void SettingsWindow::Open()
     io.IniFilename = nullptr;
     io.LogFilename = nullptr;
 
-    Theme::Apply();
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.ScaleAllSizes(scale);
-    style.FontScaleDpi = scale;
+    _scale = 0;
+    ApplyScale();
 
     // Glyphs are loaded on demand, so any Chinese text (including expression names) renders.
     ImFont* regular = nullptr;
@@ -144,6 +136,8 @@ void SettingsWindow::Open()
         ImFontConfig cfg;
         cfg.FontNo = index;
         cfg.FontDataOwnedByAtlas = false;
+        // FreeType with light hinting: snaps strokes vertically, crisper small text at 100% scale.
+        cfg.FontLoaderFlags = ImGuiFreeTypeLoaderFlags_LightHinting;
         regular = io.Fonts->AddFontFromMemoryTTF(_fontFile.data, static_cast<int>(_fontFile.size), 17.0f, &cfg);
         if (regular)
         {
@@ -173,6 +167,30 @@ void SettingsWindow::Open()
     _dialogueLoaded = -1;
 
     glfwMakeContextCurrent(previous);
+}
+
+float SettingsWindow::ContentScale() const
+{
+#ifdef __APPLE__
+    return 1.0f;  // sizes are in points; the framebuffer scale handles Retina
+#else
+    float sx = 1, sy = 1;
+    glfwGetWindowContentScale(_window, &sx, &sy);
+    return sy > 0 ? sy : 1.0f;
+#endif
+}
+
+void SettingsWindow::ApplyScale()
+{
+    const float scale = ContentScale();
+    if (scale == _scale) return;
+    _scale = scale;
+    // Rebuild from the defaults: ScaleAllSizes multiplies whatever is there.
+    ImGuiStyle& style = ImGui::GetStyle();
+    style = ImGuiStyle();
+    Theme::Apply();
+    style.ScaleAllSizes(scale);
+    style.FontScaleDpi = scale;
 }
 
 void SettingsWindow::Close()
@@ -249,6 +267,7 @@ void SettingsWindow::Frame()
 
     glfwMakeContextCurrent(_window);
     ImGui::SetCurrentContext(_imgui);
+    ApplyScale();  // moved to a monitor with another scaling (GLFW resizes the window itself)
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -754,6 +773,9 @@ void SettingsWindow::DrawAbout()
     ImGui::TextWrapped("This application contains Live2D Cubism SDK developed by Live2D Inc.");
     ImGui::Spacing();
     ImGui::TextWrapped("模型版权归原作者所有，请遵守模型附带的使用须知。");
+    ImGui::Spacing();
+    ImGui::TextWrapped("使用的开源组件：GLFW、GLEW、Dear ImGui、FreeType、cpp-httplib、nlohmann/json。");
+    ImGui::TextWrapped("Portions of this software are copyright © The FreeType Project (www.freetype.org). All rights reserved.");
     ImGui::Spacing();
     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     ImGui::TextWrapped("配置文件：%s", FileUtil::ToUtf8(Config::FilePath()).c_str());

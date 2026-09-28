@@ -28,6 +28,19 @@ FetchContent_Declare(imgui
   GIT_TAG v1.92.9
   GIT_SHALLOW TRUE)
 
+# FreeType: sharper small text than ImGui's default rasterizer, most visible on
+# ordinary (non-HiDPI) monitors. Only the core library; no PNG/zlib/HarfBuzz.
+set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
+set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
+FetchContent_Declare(freetype
+  GIT_REPOSITORY https://github.com/freetype/freetype.git
+  GIT_TAG VER-2-13-3
+  GIT_SHALLOW TRUE)
+
 # cpp-httplib: local event endpoint (header only)
 FetchContent_Declare(httplib
   GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
@@ -40,7 +53,7 @@ FetchContent_Declare(nlohmann_json
   URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
   URL_HASH SHA256=42f6e95cad6ec532fd372391373363b62a14af6d771056dbfc86160e6dfff7aa)
 
-FetchContent_MakeAvailable(glfw glew nlohmann_json imgui httplib)
+FetchContent_MakeAvailable(glfw glew nlohmann_json imgui httplib freetype)
 
 find_package(OpenGL REQUIRED)
 add_library(glew_s STATIC ${glew_SOURCE_DIR}/src/glew.c)
@@ -58,9 +71,11 @@ add_library(imgui STATIC
   ${imgui_SOURCE_DIR}/imgui_tables.cpp
   ${imgui_SOURCE_DIR}/imgui_widgets.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-  ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
-target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
-target_link_libraries(imgui PUBLIC glfw)
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+  ${imgui_SOURCE_DIR}/misc/freetype/imgui_freetype.cpp)
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends ${imgui_SOURCE_DIR}/misc/freetype)
+target_compile_definitions(imgui PUBLIC IMGUI_ENABLE_FREETYPE)
+target_link_libraries(imgui PUBLIC glfw freetype)
 # The pet window's overlay runs in a legacy OpenGL 2.1 context on macOS.
 # KUJIRA_OVERLAY_GL2 lets a Linux build exercise that path.
 option(KUJIRA_OVERLAY_GL2 "Draw the pet overlay with the OpenGL 2 backend (always on for macOS)" OFF)

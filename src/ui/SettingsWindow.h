@@ -40,8 +40,12 @@ private:
     // Host calls that may touch the pet's GL context run after this frame.
     void Later(std::function<void()> fn) { _pending.push_back(std::move(fn)); }
 
+    float ContentScale() const;
+    void ApplyScale();
+
     AppHost& _host;
     GLFWwindow* _window = nullptr;
+    float _scale = 0;
     ImGuiContext* _imgui = nullptr;
     ImFont* _titleFont = nullptr;
     Platform::MappedFile _fontFile;
