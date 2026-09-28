@@ -20,7 +20,7 @@ namespace
 {
 constexpr int kWidth = 900;
 constexpr int kHeight = 620;
-constexpr float kLabelColumn = 370.0f;
+constexpr float kLabelColumn = 400.0f;
 
 const char* kPages[] = { "常规", "外观与动画", "气泡与台词", "动作映射", "Agent 接入", "关于" };
 
@@ -347,7 +347,7 @@ void SettingsWindow::DrawGeneral()
     changed |= ImGui::Checkbox("##topmost", &c.topmost);
 #if defined(_WIN32)
     ImGui::BeginDisabled(!c.topmost);
-    Row("保持在任务栏上方", "（点过任务栏后自动回到上层）");
+    Row("保持在任务栏上方", "（点任务栏后自动回来）");
     changed |= ImGui::Checkbox("##keepontop", &c.keepOnTop);
     ImGui::EndDisabled();
     Row("全屏程序时隐藏", "（看视频、玩游戏时）");
@@ -357,10 +357,10 @@ void SettingsWindow::DrawGeneral()
     Row("保持在程序坞上方", "（可以站在 Dock 上）");
     changed |= ImGui::Checkbox("##keepontop", &c.keepOnTop);
     ImGui::EndDisabled();
-    Row("全屏程序时隐藏", "（全屏应用的桌面里不显示）");
+    Row("全屏程序时隐藏", "（全屏应用里不显示）");
     changed |= ImGui::Checkbox("##fullscreen", &c.hideForFullscreen);
 #endif
-    Row("透明区域点击穿透", "（关掉则整个窗口都可点）");
+    Row("透明区域点击穿透", "（关掉则整窗可点）");
     changed |= ImGui::Checkbox("##passthrough", &c.clickThrough);
     Row("视线跟随鼠标");
     changed |= ImGui::Checkbox("##look", &c.lookAtMouse);
@@ -463,7 +463,7 @@ void SettingsWindow::DrawDialogue()
     Row("每句停留");
     ImGui::SliderFloat("##bubblesec", &c.bubbleSeconds, 2.0f, 15.0f, "%.0f 秒");
     changed |= ImGui::IsItemDeactivatedAfterEdit();
-    Row("闲聊", "（空闲时隔一段时间说一句）");
+    Row("闲聊", "（空闲时偶尔说一句）");
     ImGui::SliderInt("##chat", &c.chatMinutes, 0, 60, c.chatMinutes == 0 ? "不闲聊" : "约每 %d 分钟");
     changed |= ImGui::IsItemDeactivatedAfterEdit();
     Row("互动台词", "（悬停、点击、拖动时）");
