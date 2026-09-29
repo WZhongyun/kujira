@@ -132,7 +132,7 @@ Config Config::Load()
     c.chatMinutes = std::clamp(c.chatMinutes, 0, 120);
     c.sleepMinutes = std::clamp(c.sleepMinutes, 1, 120);
     if (c.port < 1024 || c.port > 65535) c.port = 38111;
-    if (c.claudeHookMode != "command") c.claudeHookMode = "http";
+    if (c.claudeHookMode != "command") c.claudeHookMode = "app";
     c.ApplyDefaultActions();
     return c;
 }

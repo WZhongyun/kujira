@@ -685,10 +685,10 @@ void SettingsWindow::DrawAgents()
 
         Row("接入方式");
         int mode = c.claudeHookMode == "command" ? 1 : 0;
-        const char* modes[] = { "HTTP（推荐）", "命令 + curl（兼容旧版）" };
+        const char* modes[] = { "鲸鱼娘转发（推荐）", "命令 + curl（兼容旧版）" };
         if (ImGui::Combo("##mode", &mode, modes, 2))
         {
-            c.claudeHookMode = mode == 1 ? "command" : "http";
+            c.claudeHookMode = mode == 1 ? "command" : "app";
             Later([this] { _host.ConfigChanged(); });
             _hookStatusTime = -100;
         }

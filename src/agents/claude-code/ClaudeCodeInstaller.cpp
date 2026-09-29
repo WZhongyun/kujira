@@ -9,6 +9,7 @@
 #include "agents/claude-code/ClaudeCodeAdapter.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -35,28 +36,51 @@ std::string Url(const Config& c)
     return "http://127.0.0.1:" + std::to_string(c.port) + kEndpoint;
 }
 
+const char* kHookArg = "--hook";
+const char* kAgentId = "claude-code";
+
 ojson DesiredEntry(const Config& c)
 {
     if (c.claudeHookMode == "command")
     {
-        // Claude Code runs command hooks through bash (Git Bash on Windows).
-        // `|| true` keeps the exit code at 0 even when the pet is not running.
+        // Compatibility mode for older Claude Code versions without exec-form hooks.
+        // They ran hooks through bash (Git Bash on Windows); `|| true` keeps the
+        // exit code at 0 when the pet is not running.
         std::string cmd = "curl -s -m 2 -X POST -H \"Content-Type: application/json\" -H \"X-Kujira-Token: " + c.token +
                           "\" --data-binary @- " + Url(c) + " >/dev/null 2>&1 || true";
         return { { "type", "command" }, { "command", cmd }, { "async", true }, { "timeout", 5 } };
     }
-    return { { "type", "http" }, { "url", Url(c) }, { "timeout", 2 }, { "headers", { { "X-Kujira-Token", c.token } } } };
+    // Claude Code spawns this executable directly (exec form, no shell), so it
+    // behaves the same under bash and PowerShell. It forwards the event and
+    // always exits 0: a closed pet never shows up as a hook error, which a
+    // plain HTTP hook would (connection refused). HTTP hooks also don't run on
+    // SessionStart. async: Claude Code never waits for it.
+    return { { "type", "command" },
+             { "command", FileUtil::ToUtf8(FileUtil::ExecutablePath()) },
+             { "args", { kHookArg, kAgentId } },
+             { "async", true },
+             { "timeout", 5 } };
 }
 
 bool IsOurs(const ojson& entry)
 {
     if (!entry.is_object()) return false;
     auto type = entry.value("type", "");
-    std::string target;
-    if (type == "http") target = entry.value("url", "");
-    else if (type == "command") target = entry.value("command", "");
-    else return false;
-    return target.find("127.0.0.1") != std::string::npos && target.find(kEndpoint) != std::string::npos;
+    if (type == "http")
+    {
+        // Installed by earlier versions.
+        const std::string url = entry.value("url", "");
+        return url.find("127.0.0.1") != std::string::npos && url.find(kEndpoint) != std::string::npos;
+    }
+    if (type != "command") return false;
+    const std::string command = entry.value("command", "");
+    if (command.find("127.0.0.1") != std::string::npos && command.find(kEndpoint) != std::string::npos) return true;
+    // Kujira --hook claude-code, wherever the executable lives.
+    auto args = entry.find("args");
+    if (args == entry.end() || !args->is_array() || args->size() != 2) return false;
+    std::string name = FileUtil::ToUtf8(FileUtil::FromUtf8(command).stem());
+    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    return name == "kujira" && (*args)[0] == kHookArg && (*args)[1] == kAgentId;
 }
 
 // Removes our entries in place; returns how many were removed.
@@ -263,7 +287,7 @@ HookStatus ClaudeCodeAdapter::Status(const Config& config) const
     else
     {
         status.state = HookStatus::State::Outdated;
-        status.message = "已安装的 hook 与当前端口或方式不一致，重新安装即可更新。";
+        status.message = "已安装的 hook 与当前接入方式、端口或程序位置不一致，重新安装即可更新。";
     }
     if (root.value("disableAllHooks", false))
     {
