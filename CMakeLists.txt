@@ -109,7 +109,6 @@ set(KUJIRA_SOURCES
   src/core/PetModel.cpp
   src/core/StateMachine.cpp
   src/events/EventServer.cpp
-  src/events/HookForward.cpp
   src/agents/Registry.cpp
   src/agents/claude-code/ClaudeCodeAdapter.cpp
   src/agents/claude-code/ClaudeCodeInstaller.cpp
@@ -118,14 +117,32 @@ set(KUJIRA_SOURCES
   src/ui/Theme.cpp
 )
 if(WIN32)
+  set(KUJIRA_PATHS_SOURCE src/platform/win/PathsWin.cpp)
   list(APPEND KUJIRA_SOURCES src/platform/win/PlatformWin.cpp)
 elseif(APPLE)
+  set(KUJIRA_PATHS_SOURCE src/platform/posix/PathsPosix.cpp)
   list(APPEND KUJIRA_SOURCES src/platform/posix/PlatformPosix.cpp src/platform/mac/PlatformMac.mm)
 else()
+  set(KUJIRA_PATHS_SOURCE src/platform/posix/PathsPosix.cpp)
   list(APPEND KUJIRA_SOURCES src/platform/posix/PlatformPosix.cpp)
+endif()
+list(APPEND KUJIRA_SOURCES ${KUJIRA_PATHS_SOURCE})
+
+# kujira-hook: tiny event forwarder run by agent hooks (see src/hook/main.cpp).
+# Built next to Kujira; the two are shipped together.
+add_executable(kujira-hook src/hook/main.cpp src/core/Config.cpp src/core/FileUtil.cpp ${KUJIRA_PATHS_SOURCE})
+target_include_directories(kujira-hook PRIVATE src)
+target_link_libraries(kujira-hook PRIVATE httplib_header nlohmann_json::nlohmann_json)
+if(WIN32)
+  target_compile_definitions(kujira-hook PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE)
+  target_link_libraries(kujira-hook PRIVATE ws2_32 shell32 ole32)
+elseif(NOT APPLE)
+  find_package(Threads REQUIRED)
+  target_link_libraries(kujira-hook PRIVATE Threads::Threads)
 endif()
 
 add_executable(Kujira ${KUJIRA_SOURCES})
+add_dependencies(Kujira kujira-hook)
 target_include_directories(Kujira PRIVATE
   src
   "${CUBISM_SDK_DIR}/Samples/OpenGL/thirdParty/stb")

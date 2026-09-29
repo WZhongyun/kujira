@@ -36,8 +36,23 @@ std::string Url(const Config& c)
     return "http://127.0.0.1:" + std::to_string(c.port) + kEndpoint;
 }
 
-const char* kHookArg = "--hook";
 const char* kAgentId = "claude-code";
+
+// The forwarder shipped next to Kujira. Its full path goes into settings.json.
+fs::path HookExe()
+{
+#ifdef _WIN32
+    return FileUtil::ExecutableDir() / "kujira-hook.exe";
+#else
+    return FileUtil::ExecutableDir() / "kujira-hook";
+#endif
+}
+
+std::string Lower(std::string s)
+{
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    return s;
+}
 
 ojson DesiredEntry(const Config& c)
 {
@@ -50,14 +65,14 @@ ojson DesiredEntry(const Config& c)
                           "\" --data-binary @- " + Url(c) + " >/dev/null 2>&1 || true";
         return { { "type", "command" }, { "command", cmd }, { "async", true }, { "timeout", 5 } };
     }
-    // Claude Code spawns this executable directly (exec form, no shell), so it
+    // Claude Code spawns kujira-hook directly (exec form, no shell), so it
     // behaves the same under bash and PowerShell. It forwards the event and
     // always exits 0: a closed pet never shows up as a hook error, which a
     // plain HTTP hook would (connection refused). HTTP hooks also don't run on
     // SessionStart. async: Claude Code never waits for it.
     return { { "type", "command" },
-             { "command", FileUtil::ToUtf8(FileUtil::ExecutablePath()) },
-             { "args", { kHookArg, kAgentId } },
+             { "command", FileUtil::ToUtf8(HookExe()) },
+             { "args", { kAgentId } },
              { "async", true },
              { "timeout", 5 } };
 }
@@ -75,12 +90,13 @@ bool IsOurs(const ojson& entry)
     if (type != "command") return false;
     const std::string command = entry.value("command", "");
     if (command.find("127.0.0.1") != std::string::npos && command.find(kEndpoint) != std::string::npos) return true;
-    // Kujira --hook claude-code, wherever the executable lives.
+    // kujira-hook claude-code (or the short-lived `Kujira --hook claude-code`),
+    // wherever the executable lives.
     auto args = entry.find("args");
-    if (args == entry.end() || !args->is_array() || args->size() != 2) return false;
-    std::string name = FileUtil::ToUtf8(FileUtil::FromUtf8(command).stem());
-    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-    return name == "kujira" && (*args)[0] == kHookArg && (*args)[1] == kAgentId;
+    if (args == entry.end() || !args->is_array()) return false;
+    const std::string name = Lower(FileUtil::ToUtf8(FileUtil::FromUtf8(command).stem()));
+    if (name == "kujira-hook") return args->size() == 1 && (*args)[0] == kAgentId;
+    return name == "kujira" && args->size() == 2 && (*args)[0] == "--hook" && (*args)[1] == kAgentId;
 }
 
 // Removes our entries in place; returns how many were removed.
@@ -306,6 +322,15 @@ HookStatus ClaudeCodeAdapter::Status(const Config& config) const
 bool ClaudeCodeAdapter::Install(const Config& config, std::string* message) const
 {
     const fs::path path = ConfigFile();
+    if (config.claudeHookMode != "command")
+    {
+        std::error_code ec;
+        if (!fs::exists(HookExe(), ec))
+        {
+            if (message) *message = "找不到转发程序 " + FileUtil::ToUtf8(HookExe()) + "，它应该和 Kujira 在同一个文件夹里。";
+            return false;
+        }
+    }
     ojson root;
     if (LoadSettings(path, root, message) == LoadResult::Unreadable) return false;
     if (!Backup(path, message)) return false;
