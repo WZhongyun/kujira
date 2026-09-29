@@ -81,28 +81,34 @@ bool WriteTextAtomic(const fs::path& path, const std::string& text, std::string*
     return true;
 }
 
-fs::path ExecutableDir()
+fs::path ExecutablePath()
 {
 #ifdef _WIN32
     wchar_t buf[MAX_PATH * 4];
     DWORD n = GetModuleFileNameW(nullptr, buf, static_cast<DWORD>(std::size(buf)));
-    return fs::path(std::wstring(buf, n)).parent_path();
+    return fs::path(std::wstring(buf, n));
 #elif defined(__APPLE__)
     char buf[PATH_MAX * 2];
     uint32_t size = sizeof(buf);
     if (_NSGetExecutablePath(buf, &size) == 0)
     {
-        return fs::weakly_canonical(fs::path(buf)).parent_path();
+        return fs::weakly_canonical(fs::path(buf));
     }
-    return fs::current_path();
+    return {};
 #else
     char buf[PATH_MAX];
     ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
     if (n > 0)
     {
-        return fs::path(std::string(buf, static_cast<size_t>(n))).parent_path();
+        return fs::path(std::string(buf, static_cast<size_t>(n)));
     }
-    return fs::current_path();
+    return {};
 #endif
+}
+
+fs::path ExecutableDir()
+{
+    fs::path exe = ExecutablePath();
+    return exe.empty() ? fs::current_path() : exe.parent_path();
 }
 }

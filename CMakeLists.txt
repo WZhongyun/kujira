@@ -109,6 +109,7 @@ set(KUJIRA_SOURCES
   src/core/PetModel.cpp
   src/core/StateMachine.cpp
   src/events/EventServer.cpp
+  src/events/HookForward.cpp
   src/agents/Registry.cpp
   src/agents/claude-code/ClaudeCodeAdapter.cpp
   src/agents/claude-code/ClaudeCodeInstaller.cpp

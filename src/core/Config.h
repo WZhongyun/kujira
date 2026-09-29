@@ -46,7 +46,7 @@ struct Config
     // Agents
     int port = 38111;
     std::string token;         // shared secret sent by hooks
-    std::string claudeHookMode = "http";  // "http" or "command"
+    std::string claudeHookMode = "app";  // "app" (Kujira --hook forwards) or "command" (bash + curl)
 
     // State name -> action
     std::map<std::string, StateAction> actions;

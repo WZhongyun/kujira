@@ -18,6 +18,7 @@ std::optional<std::string> ReadText(const fs::path& path);
 // so a crash never leaves a half-written file behind.
 bool WriteTextAtomic(const fs::path& path, const std::string& text, std::string* error = nullptr);
 
-// Directory that contains the running executable.
+// The running executable, and the directory that contains it.
+fs::path ExecutablePath();
 fs::path ExecutableDir();
 }
