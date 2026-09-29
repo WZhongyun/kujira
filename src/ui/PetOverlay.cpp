@@ -258,7 +258,13 @@ void PetOverlay::Render(const Layout& layout, double now, bool showToolbar, bool
         dl->AddLine(t0, t2, Color(border, 0.45f * a), 1.2f * s);
         dl->AddLine(t1, t2, Color(border, 0.45f * a), 1.2f * s);
         dl->AddLine(ImVec2(t0.x + 1.2f * s, t0.y), ImVec2(t1.x - 1.2f * s, t1.y), Color(0xFAFCFF, 0.92f * a), 2.0f * s);
-        dl->AddText(font, fontSize, ImVec2(x + pad, y + pad), Color(0x2D3A5C, a), shown.c_str(), shown.c_str() + shown.size(), wrap);
+        // The line box includes the font's ascent/descent, which for CJK fonts
+        // leaves more room above the ink than below. Centre the ink instead,
+        // using a full-height CJK glyph so the offset doesn't vary with content.
+        float inkShift = 0;
+        ImFontGlyph* g = font->GetFontBaked(fontSize)->FindGlyphNoFallback(0x4E2D);
+        if (g) inkShift = std::round(((fontSize - g->Y1) - g->Y0) * 0.5f);
+        dl->AddText(font, fontSize, ImVec2(x + pad, y + pad + inkShift), Color(0x2D3A5C, a), shown.c_str(), shown.c_str() + shown.size(), wrap);
         _bubbleRect = { x, y, bw, bh };
     }
 
