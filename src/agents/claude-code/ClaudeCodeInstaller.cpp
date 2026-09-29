@@ -255,6 +255,7 @@ HookStatus ClaudeCodeAdapter::Status(const Config& config) const
 
     const ojson desired = DesiredEntry(config);
     int ours = 0, exact = 0, eventsCovered = 0;
+    bool missingExe = false;
     if (root.contains("hooks"))
     {
         for (const char* event : kEvents)
@@ -269,6 +270,11 @@ HookStatus ClaudeCodeAdapter::Status(const Config& config) const
                 {
                     if (!IsOurs(entry)) continue;
                     ++ours;
+                    if (entry.contains("args"))
+                    {
+                        std::error_code ec;
+                        if (!fs::exists(FileUtil::FromUtf8(entry.value("command", "")), ec)) missingExe = true;
+                    }
                     if (entry == desired) { ++exact; covered = true; }
                 }
             }
@@ -287,7 +293,8 @@ HookStatus ClaudeCodeAdapter::Status(const Config& config) const
     else
     {
         status.state = HookStatus::State::Outdated;
-        status.message = "已安装的 hook 与当前接入方式、端口或程序位置不一致，重新安装即可更新。";
+        status.message = missingExe ? "hook 指向的程序已不存在（程序文件夹可能移动过），点「更新 hook」改为当前位置。"
+                                    : "已安装的 hook 与当前接入方式、端口或程序位置不一致，重新安装即可更新。";
     }
     if (root.value("disableAllHooks", false))
     {

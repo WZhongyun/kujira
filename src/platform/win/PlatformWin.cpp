@@ -374,4 +374,26 @@ std::string GetEnv(const char* name)
     value.resize(n);
     return Narrow(value);
 }
+
+bool LaunchDetached(const fs::path& exe)
+{
+    std::wstring cmd = L"\"" + exe.wstring() + L"\"";
+    const std::wstring dir = exe.parent_path().wstring();
+    STARTUPINFOW si{};
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_FORCEOFFFEEDBACK;  // no busy cursor while she starts
+    PROCESS_INFORMATION pi{};
+    // Leave the agent's job object if allowed, so closing the agent doesn't close her.
+    DWORD flags = CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB;
+    BOOL ok = CreateProcessW(exe.c_str(), cmd.data(), nullptr, nullptr, FALSE, flags, nullptr, dir.c_str(), &si, &pi);
+    if (!ok && GetLastError() == ERROR_ACCESS_DENIED)
+    {
+        flags &= ~CREATE_BREAKAWAY_FROM_JOB;
+        ok = CreateProcessW(exe.c_str(), cmd.data(), nullptr, nullptr, FALSE, flags, nullptr, dir.c_str(), &si, &pi);
+    }
+    if (!ok) return false;
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    return true;
+}
 }

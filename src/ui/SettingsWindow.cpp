@@ -692,6 +692,11 @@ void SettingsWindow::DrawAgents()
             Later([this] { _host.ConfigChanged(); });
             _hookStatusTime = -100;
         }
+        if (c.claudeHookMode != "command")
+        {
+            Row("跟随 Claude Code 启动", "（开始新会话时自动打开她）");
+            if (ImGui::Checkbox("##launch", &c.launchWithAgent)) Later([this] { _host.ConfigChanged(); });
+        }
 
         const bool installed = st.state == HookStatus::State::Installed || st.state == HookStatus::State::Outdated;
         if (Theme::PrimaryButton(st.state == HookStatus::State::Outdated ? "更新 hook" : "安装 hook"))
@@ -745,7 +750,7 @@ void SettingsWindow::DrawAgents()
         _portEdit = std::clamp(_portEdit, 1024, 65535);
         c.port = _portEdit;
         Later([this] { _host.ConfigChanged(); _host.RestartServer(); });
-        _hookMessage = "端口已更改。已安装的 hook 需要点「更新 hook」。";
+        _hookMessage = c.claudeHookMode == "command" ? "端口已更改。已安装的 hook 需要点「更新 hook」。" : "端口已更改。";
         _hookMessageOk = true;
         _hookStatusTime = -100;
     }
