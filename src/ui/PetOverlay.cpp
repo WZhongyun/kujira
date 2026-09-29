@@ -273,25 +273,41 @@ void PetOverlay::Render(const Layout& layout, double now, bool showToolbar, bool
             const Rect r = ButtonRect(layout, i);
             _buttonRects[i] = r;
             const bool hovered = r.Contains(cursorX, cursorY);
-            const ImVec2 c(r.x + r.w * 0.5f, r.y + r.h * 0.5f);
+            // Snap the centre to a pixel so the icons anti-alias evenly on every side.
+            const ImVec2 c(std::round(r.x + r.w * 0.5f), std::round(r.y + r.h * 0.5f));
             const float radius = r.w * 0.5f;
             const unsigned accent = i == static_cast<int>(Button::Quit) ? Theme::kError : Theme::kAccent;
             dl->AddCircleFilled(c, radius, hovered ? Color(accent, 0.95f * a) : Color(0xFFFFFF, 0.88f * a), 32);
             dl->AddCircle(c, radius, Color(accent, 0.35f * a), 32, 1.0f * s);
             const ImU32 ink = hovered ? Color(0xFFFFFF, a) : Color(accent, a);
             const float t = 1.8f * s;
+            // AddLine() nudges endpoints by half a pixel; stroke paths directly
+            // so every stroke shares the same centre as the circles.
+            const auto line = [&](ImVec2 p1, ImVec2 p2, ImU32 col, float th) {
+                dl->PathLineTo(p1);
+                dl->PathLineTo(p2);
+                dl->PathStroke(col, 0, th);
+            };
             switch (static_cast<Button>(i))
             {
             case Button::Settings:
             {
-                const float rr = radius * 0.34f;
-                dl->AddCircle(c, rr, ink, 20, t);
+                // Solid gear: a thick ring plus 8 identical filled teeth, all
+                // centred on c so it stays symmetric at any scale.
+                dl->AddCircle(c, 4.1f * s, ink, 32, 3.0f * s);
+                const float kPi = 3.14159265f;
+                const float r0 = 5.0f * s, r1 = 7.8f * s, base = 1.5f * s, top = 1.1f * s;
                 for (int k = 0; k < 8; ++k)
                 {
-                    const float ang = k * 3.14159265f / 4;
-                    const ImVec2 dir(std::cos(ang), std::sin(ang));
-                    dl->AddLine(ImVec2(c.x + dir.x * (rr + 1 * s), c.y + dir.y * (rr + 1 * s)),
-                                ImVec2(c.x + dir.x * (rr + 4 * s), c.y + dir.y * (rr + 4 * s)), ink, 2.4f * s);
+                    const float ang = k * kPi / 4;
+                    const ImVec2 d(std::cos(ang), std::sin(ang)), n(-d.y, d.x);
+                    const ImVec2 tooth[4] = {
+                        ImVec2(c.x + d.x * r0 - n.x * base, c.y + d.y * r0 - n.y * base),
+                        ImVec2(c.x + d.x * r1 - n.x * top,  c.y + d.y * r1 - n.y * top),
+                        ImVec2(c.x + d.x * r1 + n.x * top,  c.y + d.y * r1 + n.y * top),
+                        ImVec2(c.x + d.x * r0 + n.x * base, c.y + d.y * r0 + n.y * base),
+                    };
+                    dl->AddConvexPolyFilled(tooth, 4, ink);
                 }
                 break;
             }
@@ -303,16 +319,16 @@ void PetOverlay::Render(const Layout& layout, double now, bool showToolbar, bool
                                       ImVec2(c.x - 4 * s, c.y + hh + 3 * s), ink);
                 if (quiet)
                 {
-                    dl->AddLine(ImVec2(c.x - 8 * s, c.y + 7 * s), ImVec2(c.x + 8 * s, c.y - 8 * s),
-                                hovered ? Color(0xFFFFFF, a) : Color(Theme::kError, a), 2.2f * s);
+                    line(ImVec2(c.x - 8 * s, c.y + 7.5f * s), ImVec2(c.x + 8 * s, c.y - 7.5f * s),
+                         hovered ? Color(0xFFFFFF, a) : Color(Theme::kError, a), 2.2f * s);
                 }
                 break;
             }
             default:
             {
                 const float k = 4.5f * s;
-                dl->AddLine(ImVec2(c.x - k, c.y - k), ImVec2(c.x + k, c.y + k), ink, 2.2f * s);
-                dl->AddLine(ImVec2(c.x - k, c.y + k), ImVec2(c.x + k, c.y - k), ink, 2.2f * s);
+                line(ImVec2(c.x - k, c.y - k), ImVec2(c.x + k, c.y + k), ink, 2.2f * s);
+                line(ImVec2(c.x - k, c.y + k), ImVec2(c.x + k, c.y - k), ink, 2.2f * s);
                 break;
             }
             }
