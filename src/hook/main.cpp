@@ -1,5 +1,9 @@
-#include "events/HookForward.h"
-
+// kujira-hook: the agent's hook runs `kujira-hook <agent>` for every event and
+// pipes the event JSON to stdin. It forwards the event to the running pet over
+// localhost and always exits 0, so a closed pet never shows up as a hook error.
+// Kept tiny on purpose (no GLFW / OpenGL): it starts dozens of times per task.
+// A console program, so Windows shows no busy cursor; it inherits the agent's
+// console and never opens a window of its own.
 #include <chrono>
 #include <cstdio>
 #include <string>
@@ -44,8 +48,10 @@ std::string ReadStdin()
 }
 }
 
-int HookForward::Run(const char* agent)
+int main(int argc, char** argv)
 {
+    if (argc < 2) return 0;
+    const std::string agent = argv[1];
     const std::string body = ReadStdin();
     if (body.empty()) return 0;
 
@@ -57,7 +63,7 @@ int HookForward::Run(const char* agent)
     client.set_read_timeout(2, 0);
     client.set_write_timeout(2, 0);
     const httplib::Headers headers = { { "X-Kujira-Token", config.token } };
-    const std::string path = std::string("/v1/events/") + agent;
+    const std::string path = "/v1/events/" + agent;
     if (client.Post(path, headers, body, "application/json")) return 0;
 
     // She isn't running. Optionally start her when a new agent session begins,
@@ -65,9 +71,14 @@ int HookForward::Run(const char* agent)
     if (!config.launchWithAgent) return 0;
     const auto event = nlohmann::json::parse(body, nullptr, false);
     if (!event.is_object() || event.value("hook_event_name", "") != "SessionStart") return 0;
-    // Start this very executable: it is the one the hook points at, so the path
-    // is right by construction.
-    if (!Platform::LaunchDetached(FileUtil::ExecutablePath())) return 0;
+    // The pet lives next to this program; both are always shipped together.
+#ifdef _WIN32
+    const fs::path pet = FileUtil::ExecutableDir() / "Kujira.exe";
+#else
+    const fs::path pet = FileUtil::ExecutableDir() / "Kujira";
+#endif
+    std::error_code ec;
+    if (!fs::exists(pet, ec) || !Platform::LaunchDetached(pet)) return 0;
     for (int i = 0; i < 100; ++i)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
