@@ -881,7 +881,7 @@ int App::Run()
         // Frame pacing: full speed while something happens, slow when idle, slower asleep.
         int fps = _config.idleFps;
         if (_states->IsBusy() || _states->CurrentKey() != StateMachine::Key(_states->CurrentState()) || _pressed ||
-            _hovering || _settings->IsOpen() || _overlay.BubbleVisible(frameStart) || _overlay.Animating() ||
+            _hovering || _settings->IsInteracting(frameStart) || _overlay.BubbleVisible(frameStart) || _overlay.Animating() ||
             frameStart < _toolbarUntil)
         {
             fps = _config.activeFps;
