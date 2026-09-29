@@ -23,6 +23,8 @@ public:
     void Open();
     void Close();
     bool IsOpen() const { return _window != nullptr; }
+    // The user is working in the window right now (input in the last 0.5 s).
+    bool IsInteracting(double now) const { return _window && now < _activeUntil; }
     // Renders one frame; closes itself if the user closed the window.
     void Frame();
 
