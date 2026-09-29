@@ -106,6 +106,7 @@ Config Config::Load()
             Get(j, "port", c.port);
             Get(j, "token", c.token);
             Get(j, "claudeHookMode", c.claudeHookMode);
+            Get(j, "launchWithAgent", c.launchWithAgent);
             auto it = j.find("actions");
             if (it != j.end() && it->is_object())
             {
@@ -163,6 +164,7 @@ bool Config::Save() const
     j["port"] = port;
     j["token"] = token;
     j["claudeHookMode"] = claudeHookMode;
+    j["launchWithAgent"] = launchWithAgent;
     json a = json::object();
     for (const auto& [state, action] : actions)
     {

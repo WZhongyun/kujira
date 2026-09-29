@@ -37,6 +37,14 @@ Claude Code 提供官方的 [hooks](https://code.claude.com/docs/en/hooks) 机�
 
 `args` 形式由 Claude Code 直接启动程序，不经过任何 shell，所以 bash、PowerShell 下行为一样，路径里有空格或中文也没问题。条目里记录的是程序的完整路径：**移动了程序文件夹后，要在设置里点一次「更新 hook」**。端口和令牌由转发程序运行时从 `config.json` 读取，改了它们不需要重装 hook。
 
+**跟随 Claude Code 启动**（设置里的开关，默认关闭，只对「鲸鱼娘转发」有效）：转发程序发现鲸鱼娘没在运行、而且收到的是 `SessionStart` 事件时，会把她启动起来，等她就绪后补发这条事件，所以她会先打个招呼。
+
+- 启动的是转发程序自己（`GetModuleFileNameW` / `_NSGetExecutablePath` / `/proc/self/exe` 取得的当前程序），也就是 hook 指向的那个文件，不另外保存路径，不会启动错。
+- 她作为独立进程启动（Windows 上不继承句柄、尽量脱离 Claude Code 的作业对象；macOS/Linux 上两次 fork 并新建会话），关掉 Claude Code 不会连带关掉她，也不会占着 hook 的管道让 Claude Code 等待。
+- 已经在运行时什么也不做；两个会话同时开始时，单实例锁保证只有一只。
+
+**路径的写入和校验**：安装时写入的是当前运行程序的完整路径（UTF-8，中文和空格都没问题），写完立即读回来逐字比对；设置页每 2 秒重新检查，路径和当前程序不一致或文件已不存在时显示「需要更新」并说明原因。
+
 **命令 hook + curl（兼容旧版本）**：如果你的 Claude Code 版本太旧、不支持 `args` 形式，在设置里切换到这个方式。命令写成 bash 语法（旧版本在 Windows 上也通过 Git Bash 运行 hook），异步运行 curl，命令末尾的 `|| true` 保证退出码永远是 0。
 
 ## 安装器如何保护你的配置

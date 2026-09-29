@@ -47,6 +47,7 @@ struct Config
     int port = 38111;
     std::string token;         // shared secret sent by hooks
     std::string claudeHookMode = "app";  // "app" (Kujira --hook forwards) or "command" (bash + curl)
+    bool launchWithAgent = false;        // "app" mode: a new agent session starts the pet if it isn't running
 
     // State name -> action
     std::map<std::string, StateAction> actions;
