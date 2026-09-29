@@ -10,6 +10,7 @@
 #include <imgui_freetype.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <imgui_internal.h>
 
 #include "core/App.h"
 #include "core/PetModel.h"
@@ -86,6 +87,7 @@ SettingsWindow::~SettingsWindow()
 
 void SettingsWindow::Open()
 {
+    _activeUntil = glfwGetTime() + 1.0;
     if (_window)
     {
         glfwShowWindow(_window);
@@ -264,6 +266,17 @@ void SettingsWindow::Frame()
         Close();
         return;
     }
+
+    // Mouse, keyboard and focus events queued by the GLFW backend since the last
+    // frame; a resize changes the framebuffer size.
+    const double now = glfwGetTime();
+    int fbW = 0, fbH = 0;
+    glfwGetFramebufferSize(_window, &fbW, &fbH);
+    if (_imgui->InputEventsQueue.Size > 0 || fbW != _lastFbW || fbH != _lastFbH) _activeUntil = now + 0.5;
+    if (now >= _activeUntil && now - _lastDraw < 0.25) return;
+    _lastDraw = now;
+    _lastFbW = fbW;
+    _lastFbH = fbH;
 
     glfwMakeContextCurrent(_window);
     ImGui::SetCurrentContext(_imgui);

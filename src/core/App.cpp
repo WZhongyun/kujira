@@ -891,7 +891,13 @@ int App::Run()
             fps = std::max(5, _config.idleFps / 2);
         }
         if (!visible) fps = 4;
-        const double frameEnd = frameStart + 1.0 / fps;
+        // Deadlines advance by exactly one period, so a late wake-up (coarse
+        // timers, vsync in the compositor) is made up on the next frame instead
+        // of lowering the rate. Too far behind (or rate changed): restart.
+        const double period = 1.0 / fps;
+        _nextFrame += period;
+        if (_nextFrame < frameStart || _nextFrame > frameStart + period) _nextFrame = frameStart + period;
+        const double frameEnd = _nextFrame;
         for (double now = glfwGetTime(); now < frameEnd && !_quit; now = glfwGetTime())
         {
             Platform::WaitEvents(frameEnd - now);
