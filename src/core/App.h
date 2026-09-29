@@ -127,6 +127,7 @@ private:
     double _lastFrame = 0;
     double _lastStayOnTopCheck = 0;
     double _fpsWindowStart = 0;
+    double _nextFrame = 0;  // frame deadlines on a fixed timeline, so wait overshoot doesn't lower the rate
     int _fpsFrames = 0;
     float _fps = 0;
 };

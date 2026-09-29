@@ -56,6 +56,11 @@ private:
     // Agents page
     std::vector<HookStatus> _hookStatus;
     double _hookStatusTime = -100;
+    // Redraw only while the user interacts (plus a short tail for animations);
+    // otherwise a few times a second, enough for the memory / fps readout.
+    double _activeUntil = 0;
+    double _lastDraw = -100;
+    int _lastFbW = 0, _lastFbH = 0;
     std::string _hookMessage;
     bool _hookMessageOk = true;
     int _portEdit = 0;
