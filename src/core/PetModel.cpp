@@ -4,6 +4,8 @@
 #include "core/PetModel.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <fstream>
 
 #include <GL/glew.h>
@@ -12,14 +14,16 @@
 #include <CubismModelSettingJson.hpp>
 #include <Id/CubismIdManager.hpp>
 #include <Motion/CubismBreathUpdater.hpp>
-#include <Motion/CubismExpressionUpdater.hpp>
 #include <Motion/CubismEyeBlinkUpdater.hpp>
 #include <Motion/CubismLookUpdater.hpp>
 #include <Motion/CubismMotion.hpp>
+#include <Motion/CubismMotionQueueEntry.hpp>
 #include <Motion/CubismPhysicsUpdater.hpp>
 #include <Motion/CubismPoseUpdater.hpp>
 #include <Rendering/OpenGL/CubismOffscreenManager_OpenGLES2.hpp>
 #include <Rendering/OpenGL/CubismRenderer_OpenGLES2.hpp>
+
+#include <nlohmann/json.hpp>
 
 #include "stb_image.h"
 
@@ -30,6 +34,8 @@ namespace
 {
 constexpr csmInt32 kPriorityIdle = 1;
 constexpr csmInt32 kPriorityNormal = 2;
+// Expression fade, close to the 0.1-0.5 s the model's VTube Studio hotkeys use.
+constexpr float kExpressionFadeSeconds = 0.3f;
 
 std::vector<csmByte> ReadBytes(const fs::path& path)
 {
@@ -80,21 +86,27 @@ std::vector<fs::path> FindFiles(const fs::path& dir, const std::string& suffix)
 }
 }
 
+// Applies the stacked expressions at the point of the update where the SDK applies
+// its own expressions: after eye blink, before look-at, breath and physics.
+class PetModel::ExpressionUpdater : public ICubismUpdater
+{
+public:
+    explicit ExpressionUpdater(PetModel& owner) : ICubismUpdater(CubismUpdateOrder_Expression), _owner(owner) {}
+    void OnLateUpdate(CubismModel* model, csmFloat32 dt) override { _owner.ApplyExpressions(model, dt); }
+
+private:
+    PetModel& _owner;
+};
+
 PetModel::PetModel() = default;
 
 PetModel::~PetModel()
 {
-    for (auto it = _expressions.Begin(); it != _expressions.End(); ++it)
-    {
-        ACubismMotion::Delete(it->Second);
-    }
+    // The state layer only holds motions we own (autoDelete off); it must go before them.
+    CSM_DELETE(_stateMotions);
     for (auto& [name, motion] : _motions)
     {
         ACubismMotion::Delete(motion);
-    }
-    if (_neutralExpression)
-    {
-        ACubismMotion::Delete(_neutralExpression);
     }
     if (!_textures.empty())
     {
@@ -205,6 +217,8 @@ bool PetModel::Load(const fs::path& dir, std::string* error)
     _model->SaveParameters();
 
     LoadMotions();
+    LoadDisplayNames();
+    _stateMotions = CSM_NEW CubismMotionManager();
 
     GLint viewport[4];
     glGetIntegerv(GL_VIEWPORT, viewport);
@@ -224,21 +238,53 @@ void PetModel::LoadExpressions()
     {
         files.emplace(StripSuffix(path, ".exp3.json"), path);
     }
+    CubismIdManager* ids = CubismFramework::GetIdManager();
     for (const auto& [name, path] : files)
     {
-        auto bytes = ReadBytes(path);
-        if (bytes.empty()) continue;
-        ACubismMotion* motion = LoadExpression(bytes.data(), static_cast<csmSizeInt>(bytes.size()), name.c_str());
-        if (motion)
+        auto text = FileUtil::ReadText(path);
+        auto j = nlohmann::json::parse(text ? *text : "", nullptr, false, true);
+        if (!j.is_object() || !j.contains("Parameters") || !j["Parameters"].is_array()) continue;
+        Expression e;
+        for (const auto& p : j["Parameters"])
         {
-            _expressions[name.c_str()] = motion;
-            _expressionNames.push_back(name);
+            if (!p.is_object() || !p.contains("Id") || !p["Id"].is_string() || !p.contains("Value") || !p["Value"].is_number()) continue;
+            const std::string blend = p.value("Blend", std::string("Add"));
+            const csmInt32 index = _model->GetParameterIndex(ids->GetId(p["Id"].get<std::string>().c_str()));
+            e.params.push_back({ index, blend == "Multiply" ? 1 : blend == "Overwrite" ? 2 : 0, p["Value"].get<float>() });
+        }
+        _expressions[name] = std::move(e);
+        _expressionNames.push_back(name);
+    }
+    _updateScheduler.AddUpdatableList(CSM_NEW ExpressionUpdater(*this));
+}
+
+void PetModel::SetExpressions(const std::vector<std::string>& names)
+{
+    for (auto& [name, e] : _expressions)
+    {
+        e.on = std::find(names.begin(), names.end(), name) != names.end();
+    }
+}
+
+void PetModel::ApplyExpressions(CubismModel* model, float dt)
+{
+    const float step = dt / kExpressionFadeSeconds;
+    for (auto& [name, e] : _expressions)
+    {
+        e.weight = e.on ? std::min(1.0f, e.weight + step) : std::max(0.0f, e.weight - step);
+        if (e.weight <= 0) continue;
+        // Ease in and out like the SDK's expression fades.
+        const float w = 0.5f - 0.5f * std::cos(e.weight * 3.14159265f);
+        for (const auto& p : e.params)
+        {
+            switch (p.blend)
+            {
+            case 0: model->AddParameterValue(p.index, p.value, w); break;
+            case 1: model->MultiplyParameterValue(p.index, p.value, w); break;
+            default: model->SetParameterValue(p.index, p.value, w); break;
+            }
         }
     }
-    // An empty expression: starting it fades whatever is showing back to neutral.
-    static const char kNeutral[] = R"({"Type":"Live2D Expression","FadeInTime":0.4,"FadeOutTime":0.4,"Parameters":[]})";
-    _neutralExpression = LoadExpression(reinterpret_cast<const csmByte*>(kNeutral), sizeof(kNeutral) - 1, "__neutral");
-    _updateScheduler.AddUpdatableList(CSM_NEW CubismExpressionUpdater(*_expressionManager));
 }
 
 void PetModel::LoadMotions()
@@ -252,8 +298,12 @@ void PetModel::LoadMotions()
         auto* motion = static_cast<CubismMotion*>(LoadMotion(bytes.data(), static_cast<csmSizeInt>(bytes.size()), name.c_str()));
         if (!motion) continue;
         motion->SetEffectIds(_eyeBlinkIds, _lipSyncIds);
-        motion->SetFadeInTime(std::max(motion->GetFadeInTime(), 0.3f));
-        motion->SetFadeOutTime(std::max(motion->GetFadeOutTime(), 0.3f));
+        // Soft 0.3 s fades, but never longer than a quarter of the motion: the water
+        // spout lasts under half a second and would otherwise never show fully.
+        const float fade = std::min(0.3f, motion->GetDuration() * 0.25f);
+        motion->SetFadeInTime(fade);
+        motion->SetFadeOutTime(fade);
+        motion->SetLoopFadeIn(false);
         _motions[name] = motion;
         _motionNames.push_back(name);
     }
@@ -297,6 +347,41 @@ void PetModel::SetIdleMotion(const std::string& name)
     _idleMotion = name;
 }
 
+void PetModel::LoadDisplayNames()
+{
+    for (const auto& path : FindFiles(_dir, ".vtube.json"))
+    {
+        auto text = FileUtil::ReadText(path);
+        auto j = nlohmann::json::parse(text ? *text : "", nullptr, false, true);
+        if (!j.is_object() || !j.contains("Hotkeys") || !j["Hotkeys"].is_array()) continue;
+        for (const auto& h : j["Hotkeys"])
+        {
+            if (!h.is_object()) continue;
+            std::string file = h.value("File", std::string());
+            const std::string name = h.value("Name", std::string());
+            file = FileUtil::ToUtf8(FileUtil::FromUtf8(file).filename());
+            for (const char* suffix : { ".exp3.json", ".motion3.json" })
+            {
+                if (EndsWith(file, suffix)) file.resize(file.size() - std::strlen(suffix));
+            }
+            if (!file.empty() && !name.empty() && name != file) _displayNames.emplace(file, name);
+        }
+    }
+}
+
+const std::string& PetModel::DisplayName(const std::string& name) const
+{
+    auto it = _displayNames.find(name);
+    return it != _displayNames.end() ? it->second : name;
+}
+
+float PetModel::MotionDuration(const std::string& name) const
+{
+    auto it = _motions.find(name);
+    // GetDuration() is -1 once a motion has been played looping.
+    return it != _motions.end() ? static_cast<CubismMotion*>(it->second)->GetLoopDuration() : 0.0f;
+}
+
 void PetModel::Update(float dt)
 {
     _motionUpdated = false;
@@ -315,6 +400,13 @@ void PetModel::Update(float dt)
         _motionUpdated = _motionManager->UpdateMotion(_model, dt);
     }
     _model->SaveParameters();
+    if (_stateMotions && !_stateMotions->IsFinished())
+    {
+        // Parameters the state motion animates win over idle; the rest keep idling.
+        // Applied after SaveParameters so nothing it sets (bubble gum, the omelette)
+        // stays behind once it stops, the way VTube Studio resets after an animation.
+        _motionUpdated |= _stateMotions->UpdateMotion(_model, dt);
+    }
     _updateScheduler.OnLateUpdate(_model, dt);
     _model->Update();
 }
@@ -324,21 +416,24 @@ void PetModel::LookAt(float x, float y)
     SetDragging(x, y);
 }
 
-void PetModel::SetExpressionByName(const std::string& name)
-{
-    ACubismMotion* motion = name.empty() ? nullptr : _expressions[name.c_str()];
-    if (!motion) motion = _neutralExpression;
-    if (motion) _expressionManager->StartMotion(motion, false);
-}
-
-bool PetModel::PlayMotion(const std::string& name)
+bool PetModel::PlayMotion(const std::string& name, bool loop)
 {
     auto it = _motions.find(name);
-    if (it == _motions.end()) return false;
-    it->second->SetLoop(false);
-    _motionManager->SetReservePriority(kPriorityNormal);
-    _motionManager->StartMotionPriority(it->second, false, kPriorityNormal);
+    if (it == _motions.end() || !_stateMotions) return false;
+    it->second->SetLoop(loop);
+    _stateMotions->SetReservePriority(kPriorityNormal);
+    _stateMotion = _stateMotions->StartMotionPriority(it->second, false, kPriorityNormal);
     return true;
+}
+
+void PetModel::StopMotion()
+{
+    if (!_stateMotions || _stateMotions->IsFinished()) return;
+    if (CubismMotionQueueEntry* entry = _stateMotions->GetCubismMotionQueueEntry(_stateMotion))
+    {
+        ACubismMotion* motion = entry->GetCubismMotion();
+        entry->SetFadeout(motion ? std::max(motion->GetFadeOutTime(), 0.1f) : 0.3f);
+    }
 }
 
 void PetModel::MeasureBounds()

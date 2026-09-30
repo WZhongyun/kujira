@@ -34,6 +34,7 @@ private:
     void DrawAppearance();
     void DrawDialogue();
     void DrawActions();
+    void DrawAssets();
     void DrawAgents();
     void DrawAbout();
     void SectionTitle(const char* title, const char* caption);
@@ -67,6 +68,9 @@ private:
     bool _hookMessageOk = true;
     int _portEdit = 0;
     char _modelDirEdit[1024] = {};
+
+    // Assets page: expressions picked for preview
+    std::vector<std::string> _previewExpressions;
 
     // Dialogue page
     int _dialogueCategory = 0;

@@ -51,19 +51,23 @@ fs::path Config::FilePath()
 void Config::ApplyDefaultActions()
 {
     // Defaults tuned for the DS whale-girl model; missing names are ignored at runtime.
+    // Combinations follow how the model's author uses them in VTube Studio: several
+    // expressions stacked, motions layered over the idle motion (which animates the
+    // hearts, paws and flowers), and the water spout only shows on the whale on her head.
     const std::map<std::string, StateAction> defaults = {
-        { "greeting",  { "开心兴奋", "", 3.0f } },
-        { "listening", { "星星眼", "", 1.5f } },
-        { "thinking",  { "", "", 0.0f } },
-        { "reading",   { "圆眼镜", "", 0.0f } },
-        { "writing",   { "画笔", "", 0.0f } },
-        { "running",   { "流汗", "", 0.0f } },
-        { "attention", { "感叹号", "喷水", 0.0f } },
-        { "done",      { "双手比耶", "", 4.0f } },
-        { "farewell",  { "爱心眼", "", 2.0f } },
-        { "sleeping",  { "闭眼口水", "", 0.0f } },
-        { "idle",      { "", "", 0.0f } },
-        { "poke",      { "脸红", "", 2.0f } },
+        { "greeting",  { { "鲸鱼", "开心兴奋" }, "喷水", true, 3.0f } },
+        { "listening", { { "星星眼", "感叹号" }, "", false, 1.5f } },
+        { "thinking",  { {}, "chuipaopao", true, 0.0f } },
+        { "reading",   { { "圆眼镜" }, "", false, 0.0f } },
+        { "writing",   { { "画笔", "点菜按下" }, "", false, 0.0f } },
+        { "running",   { {}, "番茄酱", true, 0.0f } },
+        { "attention", { { "鲸鱼", "问号" }, "喷水", true, 0.0f } },
+        { "done",      { { "双手比耶", "开心兴奋", "love" }, "", false, 4.0f } },
+        { "farewell",  { { "喵喵手~喵~动画", "脸红" }, "", false, 2.5f } },
+        { "sleeping",  { { "闭眼口水", "吐魂" }, "", false, 0.0f } },
+        { "idle",      { {}, "", false, 0.0f } },
+        { "poke",      { {}, "aidale", false, 4.8f } },
+        { "drag",      { { "晕晕" }, "", false, 0.8f } },
     };
     for (const auto& [state, action] : defaults)
     {
@@ -103,6 +107,8 @@ Config Config::Load()
             Get(j, "showToolbar", c.showToolbar);
             Get(j, "modelDir", c.modelDir);
             Get(j, "idleMotion", c.idleMotion);
+            Get(j, "outfit", c.outfit);
+            Get(j, "actionsVersion", c.actionsVersion);
             Get(j, "port", c.port);
             Get(j, "token", c.token);
             Get(j, "claudeHookMode", c.claudeHookMode);
@@ -113,8 +119,12 @@ Config Config::Load()
                 for (auto& [state, a] : it->items())
                 {
                     StateAction action;
-                    Get(a, "expression", action.expression);
+                    Get(a, "expressions", action.expressions);
+                    std::string single;  // before version 2: one expression per state
+                    Get(a, "expression", single);
+                    if (action.expressions.empty() && !single.empty()) action.expressions.push_back(single);
                     Get(a, "motion", action.motion);
+                    Get(a, "loop", action.loop);
                     Get(a, "hold", action.holdSeconds);
                     c.actions[state] = action;
                 }
@@ -134,6 +144,13 @@ Config Config::Load()
     c.sleepMinutes = std::clamp(c.sleepMinutes, 1, 120);
     if (c.port < 1024 || c.port > 65535) c.port = 38111;
     if (c.claudeHookMode != "command") c.claudeHookMode = "app";
+    if (c.actionsVersion < kActionsVersion)
+    {
+        // Saved actions came from older defaults that could only show one expression;
+        // switch to the new combinations (they can be edited again in settings).
+        c.actions.clear();
+        c.actionsVersion = kActionsVersion;
+    }
     c.ApplyDefaultActions();
     return c;
 }
@@ -161,6 +178,7 @@ bool Config::Save() const
     j["showToolbar"] = showToolbar;
     j["modelDir"] = modelDir;
     j["idleMotion"] = idleMotion;
+    j["outfit"] = outfit;
     j["port"] = port;
     j["token"] = token;
     j["claudeHookMode"] = claudeHookMode;
@@ -168,8 +186,10 @@ bool Config::Save() const
     json a = json::object();
     for (const auto& [state, action] : actions)
     {
-        a[state] = { { "expression", action.expression }, { "motion", action.motion }, { "hold", action.holdSeconds } };
+        a[state] = { { "expressions", action.expressions }, { "motion", action.motion }, { "loop", action.loop },
+                     { "hold", action.holdSeconds } };
     }
     j["actions"] = a;
+    j["actionsVersion"] = actionsVersion;
     return FileUtil::WriteTextAtomic(FilePath(), j.dump(2, ' ', false, json::error_handler_t::replace));
 }
