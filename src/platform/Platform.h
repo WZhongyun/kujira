@@ -65,7 +65,8 @@ void OpenFolder(const fs::path& folder);
 // Environment variable as UTF-8 ("" if missing).
 std::string GetEnv(const char* name);
 
-// Starts `exe` (no arguments) as an independent process: no inherited handles
-// or stdio, not tied to our lifetime. Returns false if it could not be started.
-bool LaunchDetached(const fs::path& exe);
+// Starts `exe` (with one optional argument) as an independent process: no
+// inherited handles or stdio, not tied to our lifetime. Returns false if it
+// could not be started.
+bool LaunchDetached(const fs::path& exe, const std::string& arg = {});
 }

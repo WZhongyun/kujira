@@ -67,7 +67,8 @@ int main(int argc, char** argv)
     if (client.Post(path, headers, body, "application/json")) return 0;
 
     // She isn't running. Optionally start her when a new agent session begins,
-    // then deliver this event so she greets it.
+    // then deliver this event so she greets it. The flag tells her to close
+    // again once the last agent session has ended.
     if (!config.launchWithAgent) return 0;
     const auto event = nlohmann::json::parse(body, nullptr, false);
     if (!event.is_object() || event.value("hook_event_name", "") != "SessionStart") return 0;
@@ -78,7 +79,7 @@ int main(int argc, char** argv)
     const fs::path pet = FileUtil::ExecutableDir() / "Kujira";
 #endif
     std::error_code ec;
-    if (!fs::exists(pet, ec) || !Platform::LaunchDetached(pet)) return 0;
+    if (!fs::exists(pet, ec) || !Platform::LaunchDetached(pet, "--launched-by-agent")) return 0;
     for (int i = 0; i < 100; ++i)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));

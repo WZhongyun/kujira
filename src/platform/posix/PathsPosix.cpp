@@ -26,7 +26,7 @@ fs::path ConfigDir()
 #endif
 }
 
-bool LaunchDetached(const fs::path& exe)
+bool LaunchDetached(const fs::path& exe, const std::string& arg)
 {
     const std::string path = exe.string();
     const std::string dir = exe.parent_path().string();
@@ -48,7 +48,8 @@ bool LaunchDetached(const fs::path& exe)
         }
         for (int fd = 3; fd < 1024; ++fd) close(fd);
         if (chdir(dir.c_str()) != 0) { /* not fatal */ }
-        execl(path.c_str(), path.c_str(), static_cast<char*>(nullptr));
+        if (arg.empty()) execl(path.c_str(), path.c_str(), static_cast<char*>(nullptr));
+        else execl(path.c_str(), path.c_str(), arg.c_str(), static_cast<char*>(nullptr));
         _exit(127);
     }
     int status = 0;

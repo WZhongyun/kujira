@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <random>
+#include <set>
 #include <string>
 
 #include "core/Config.h"
@@ -42,7 +43,8 @@ public:
 class App : public AppHost
 {
 public:
-    App();
+    // launchedByAgent: started by the hook forwarder; closes after the last agent session ends.
+    explicit App(bool launchedByAgent = false);
     ~App() override;
 
     int Run();
@@ -83,6 +85,8 @@ private:
     void Say(const std::string& text, float seconds, PetOverlay::Priority priority);
     void SayForEvent(const PetEvent& event);
     void UpdateTalk(double now);
+    void TrackAgentSession(const PetEvent& event, double now);
+    void UpdateFollowQuit(double now);
     void OnToolbarButton(PetOverlay::Button button);
 
     static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
@@ -102,6 +106,9 @@ private:
     std::mt19937 _rng{ std::random_device{}() };
 
     bool _quit = false;
+    bool _launchedByAgent = false;
+    std::set<std::string> _agentSessions;  // open agent sessions (only tracked when launched by an agent)
+    double _followQuitAt = -1;             // quit around this time unless a session starts; -1: not pending
     bool _fitted = false;
     bool _scaleChanged = false;
     bool _passthrough = false;
