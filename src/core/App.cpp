@@ -26,6 +26,9 @@ namespace
 // action's hold time is over, but never sooner than this, so a session that ends
 // and immediately starts again (/clear) doesn't close and restart her.
 constexpr double kMinFollowQuitDelay = 1.0;
+// Pseudo action keys shown as overlays: assets picked in settings, and being dragged.
+const char kPreviewKey[] = "preview";
+const char kDragKey[] = "drag";
 
 class Allocator : public Csm::ICubismAllocator
 {
@@ -314,11 +317,14 @@ void App::ApplyAction(const std::string& key)
 {
     if (!_model) return;
     auto it = _config.actions.find(key);
-    const StateAction action = it != _config.actions.end() ? it->second : StateAction{};
-    _model->SetExpressionByName(action.expression);
-    if (!action.motion.empty())
+    const StateAction action = key == kPreviewKey ? _previewAction
+                               : it != _config.actions.end() ? it->second : StateAction{};
+    std::vector<std::string> expressions = _config.outfit;
+    expressions.insert(expressions.end(), action.expressions.begin(), action.expressions.end());
+    _model->SetExpressions(expressions);
+    if (action.motion.empty() || !_model->PlayMotion(action.motion, action.loop))
     {
-        _model->PlayMotion(action.motion);
+        _model->StopMotion();
     }
 }
 
@@ -327,6 +333,22 @@ void App::Preview(const std::string& key)
     auto it = _config.actions.find(key);
     float hold = (it != _config.actions.end() && it->second.holdSeconds > 0) ? it->second.holdSeconds : 3.0f;
     _states->ShowOverlay(key, hold, glfwGetTime());
+}
+
+void App::PreviewAssets(const std::vector<std::string>& expressions, const std::string& motion)
+{
+    _previewAction = StateAction{ expressions, motion, false, 0 };
+    float seconds = 5.0f;
+    if (_model && !motion.empty())
+    {
+        // Short motions (the water spout) loop so they can be seen; long ones play once.
+        const float duration = _model->MotionDuration(motion);
+        _previewAction.loop = duration < 1.5f;
+        if (!_previewAction.loop) seconds = std::max(seconds, duration + 0.5f);
+    }
+    _states->ShowOverlay(kPreviewKey, seconds, glfwGetTime());
+    // Already previewing: the key did not change, so apply the new choice now.
+    if (_states->CurrentKey() == kPreviewKey) ApplyAction(kPreviewKey);
 }
 
 void App::MouseButtonCallback(GLFWwindow* window, int button, int action, int)
@@ -406,6 +428,9 @@ void App::UpdateInput(double)
         }
         if (_dragging)
         {
+            auto it = _config.actions.find(kDragKey);
+            const float hold = it != _config.actions.end() ? it->second.holdSeconds : 0.8f;
+            _states->ShowOverlay(kDragKey, hold, glfwGetTime());
             glfwSetWindowPos(_window, _pressWinX + static_cast<int>(std::lround(dx)), _pressWinY + static_cast<int>(std::lround(dy)));
         }
     }

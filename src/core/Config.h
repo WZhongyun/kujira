@@ -2,14 +2,16 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "core/FileUtil.h"
 
 // What the pet does in one state. Empty fields mean "nothing".
 struct StateAction
 {
-    std::string expression;  // expression name (file name without .exp3.json)
-    std::string motion;      // motion name (file name without .motion3.json)
+    std::vector<std::string> expressions;  // expression names (file names without .exp3.json), stacked
+    std::string motion;      // motion name (file name without .motion3.json), played over the idle motion
+    bool loop = false;       // repeat the motion for as long as the state lasts
     float holdSeconds = 0;   // transient states: how long before falling back
 };
 
@@ -42,6 +44,7 @@ struct Config
     // Model
     std::string modelDir;      // "" = first model under assets/models
     std::string idleMotion = "idle";
+    std::vector<std::string> outfit;  // expressions that stay on in every state (props, hair, stickers)
 
     // Agents
     int port = 38111;
@@ -51,6 +54,9 @@ struct Config
 
     // State name -> action
     std::map<std::string, StateAction> actions;
+    // Version of the default actions the saved ones were based on; older sets are replaced.
+    int actionsVersion = 0;
+    static constexpr int kActionsVersion = 2;
 
     static fs::path FilePath();
     static Config Load();

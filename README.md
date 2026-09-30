@@ -43,20 +43,21 @@
 
 ## 状态与动作
 
-| Claude Code 事件 | 状态 | 默认表情 |
+| Claude Code 事件 | 状态 | 默认表情和动作 |
 | --- | --- | --- |
-| SessionStart | 会话开始 | 开心兴奋（3 秒） |
-| UserPromptSubmit | 收到指令 | 星星眼（1.5 秒） |
+| SessionStart | 会话开始 | 头顶鲸 + 开心兴奋，小鲸喷水（3 秒） |
+| UserPromptSubmit | 收到指令 | 星星眼 + 感叹号（1.5 秒） |
 | PreToolUse：Read / Grep / Glob / WebFetch… | 阅读文件 | 圆眼镜 |
-| PreToolUse：Edit / Write / MultiEdit | 修改文件 | 画笔 |
-| PreToolUse：Bash | 执行命令 | 流汗 |
-| PreToolUse：其他工具、PostToolUse | 思考中 | 无 |
-| Notification（请求权限、等待输入） | 需要关注 | 感叹号 + 鲸鱼喷水 |
-| Stop | 完成 | 双手比耶（4 秒） |
-| SessionEnd | 会话结束 | 爱心眼（2 秒） |
-| 无事件超过 5 分钟 | 睡眠 | 闭眼口水 |
+| PreToolUse：Edit / Write / MultiEdit | 修改文件 | 画笔 + 点菜手按下 |
+| PreToolUse：Bash | 执行命令 | 挤番茄酱蛋包饭（循环） |
+| PreToolUse：其他工具、PostToolUse | 思考中 | 吹泡泡糖（循环） |
+| Notification（请求权限、等待输入） | 需要关注 | 头顶鲸 + 问号，小鲸一直喷水 |
+| Stop | 完成 | 双手比耶 + 开心兴奋 + 冒爱心（4 秒） |
+| SessionEnd | 会话结束 | 喵喵手 + 脸红（2.5 秒） |
+| 无事件超过 5 分钟 | 睡眠 | 闭眼口水 + 吐魂 |
+| 单击她 / 拖动她 | 互动 | 重锤出击 / 晕晕眼 |
 
-每一项都能在设置的「动作映射」里改，并可以「试播」。同时开多个会话时，按「需要关注 > 工作中 > 完成 > 空闲」显示最重要的那个。
+默认组合参考了模型作者在 VTube Studio 里的用法：表情像开关一样叠加，动作叠在待机动作上播放。每一项都能在设置的「动作映射」里改（表情可多选，动作可选循环），并可以「试播」；「素材与装扮」页可以点选预览所有表情和动作，也可以设置一直显示的装扮（头顶鲸、马尾、贴纸、眼镜等）。同时开多个会话时，按「需要关注 > 工作中 > 完成 > 空闲」显示最重要的那个。
 
 Hook 的安装方式和安全性见 [docs/agents/claude-code.md](docs/agents/claude-code.md)。
 

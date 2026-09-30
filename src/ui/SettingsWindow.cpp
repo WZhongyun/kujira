@@ -24,7 +24,7 @@ constexpr int kWidth = 960;
 constexpr int kHeight = 620;
 constexpr float kLabelColumn = 400.0f;
 
-const char* kPages[] = { "常规", "外观与动画", "气泡与台词", "动作映射", "Agent 接入", "关于" };
+const char* kPages[] = { "常规", "外观与动画", "气泡与台词", "动作映射", "素材与装扮", "Agent 接入", "关于" };
 
 bool NameCombo(const char* id, std::string& value, const std::vector<std::string>& names, const char* noneLabel)
 {
@@ -51,6 +51,79 @@ bool NameCombo(const char* id, std::string& value, const std::vector<std::string
         ImGui::EndCombo();
     }
     return changed;
+}
+
+// Label for an expression / motion: the name the model's author gave it, if any.
+std::string Label(const PetModel* model, const std::string& name)
+{
+    return model ? model->DisplayName(name) : name;
+}
+
+// Combo with a checkbox per name; several can be picked.
+bool MultiNameCombo(const char* id, std::vector<std::string>& values, const std::vector<std::string>& names,
+                    const PetModel* model, const char* noneLabel)
+{
+    bool changed = false;
+    std::string preview;
+    for (const auto& v : values)
+    {
+        if (!preview.empty()) preview += "、";
+        preview += Label(model, v);
+    }
+    if (preview.empty()) preview = noneLabel;
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::BeginCombo(id, preview.c_str(), ImGuiComboFlags_HeightLarge))
+    {
+        if (ImGui::Selectable(noneLabel, values.empty(), ImGuiSelectableFlags_NoAutoClosePopups))
+        {
+            values.clear();
+            changed = true;
+        }
+        for (const auto& name : names)
+        {
+            auto it = std::find(values.begin(), values.end(), name);
+            bool on = it != values.end();
+            ImGui::PushID(name.c_str());
+            if (ImGui::Checkbox(Label(model, name).c_str(), &on))
+            {
+                if (on) values.push_back(name);
+                else values.erase(it);
+                changed = true;
+            }
+            if (Label(model, name) != name && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", name.c_str());
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
+    }
+    return changed;
+}
+
+// A row of toggle chips that wraps at the window edge. Returns the clicked name.
+const std::string* ChipFlow(const std::vector<std::string>& names, const PetModel* model,
+                            const std::vector<std::string>& selected)
+{
+    const std::string* clicked = nullptr;
+    const ImGuiStyle& st = ImGui::GetStyle();
+    const float right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+    for (size_t i = 0; i < names.size(); ++i)
+    {
+        const std::string label = Label(model, names[i]);
+        const float w = ImGui::CalcTextSize(label.c_str()).x + st.FramePadding.x * 2;
+        if (i > 0 && ImGui::GetItemRectMax().x + st.ItemSpacing.x + w <= right) ImGui::SameLine();
+        const bool on = std::find(selected.begin(), selected.end(), names[i]) != selected.end();
+        ImGui::PushID(static_cast<int>(i));
+        if (on)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, Theme::Hex(Theme::kAccent));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::Hex(Theme::kAccent, 0.85f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+        }
+        if (ImGui::Button(label.c_str())) clicked = &names[i];
+        if (on) ImGui::PopStyleColor(3);
+        if (label != names[i] && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", names[i].c_str());
+        ImGui::PopID();
+    }
+    return clicked;
 }
 
 // Loads the model icon as a texture for the sidebar and as the window icon.
@@ -304,7 +377,8 @@ void SettingsWindow::Frame()
     case 1: DrawAppearance(); break;
     case 2: DrawDialogue(); break;
     case 3: DrawActions(); break;
-    case 4: DrawAgents(); break;
+    case 4: DrawAssets(); break;
+    case 5: DrawAgents(); break;
     default: DrawAbout(); break;
     }
     ImGui::EndChild();
@@ -589,7 +663,7 @@ void SettingsWindow::DrawDialogue()
 void SettingsWindow::DrawActions()
 {
     Config& c = _host.GetConfig();
-    SectionTitle("动作映射", "Claude Code 处于每种状态时，她显示哪个表情、播放哪个动作。试播可以直接预览。");
+    SectionTitle("动作映射", "Claude Code 处于每种状态时，她显示哪些表情、播放哪个动作。表情可以多选叠加，试播可以直接预览。");
 
     const PetModel* model = _host.Model();
     static const std::vector<std::string> kNoNames;
@@ -604,7 +678,7 @@ void SettingsWindow::DrawActions()
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("状态", ImGuiTableColumnFlags_WidthFixed, 100 * s);
         ImGui::TableSetupColumn("表情");
-        ImGui::TableSetupColumn("动作（播放一次）");
+        ImGui::TableSetupColumn("动作");
         ImGui::TableSetupColumn("持续", ImGuiTableColumnFlags_WidthFixed, 90 * s);
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 64 * s);
         ImGui::TableHeadersRow();
@@ -621,9 +695,36 @@ void SettingsWindow::DrawActions()
                 ImGui::SetTooltip("由 Claude Code 启动时，最后一个会话结束后播完这个动作就关闭");
             }
             ImGui::TableNextColumn();
-            changed |= NameCombo("##exp", a.expression, expressions, "（无）");
+            changed |= MultiNameCombo("##exp", a.expressions, expressions, model, "（无）");
             ImGui::TableNextColumn();
-            changed |= NameCombo("##mot", a.motion, motions, "（无）");
+            {
+                const float loopWidth = ImGui::GetFrameHeight() + ImGui::CalcTextSize("循环").x + ImGui::GetStyle().ItemInnerSpacing.x;
+                ImGui::PushItemWidth(-(loopWidth + ImGui::GetStyle().ItemSpacing.x));
+                std::string preview = a.motion.empty() ? "（无）" : Label(model, a.motion);
+                if (ImGui::BeginCombo("##mot", preview.c_str(), ImGuiComboFlags_HeightLarge))
+                {
+                    if (ImGui::Selectable("（无）", a.motion.empty()))
+                    {
+                        a.motion.clear();
+                        changed = true;
+                    }
+                    for (const auto& name : motions)
+                    {
+                        if (ImGui::Selectable(Label(model, name).c_str(), name == a.motion))
+                        {
+                            a.motion = name;
+                            changed = true;
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::PopItemWidth();
+                ImGui::SameLine();
+                ImGui::BeginDisabled(a.motion.empty());
+                changed |= ImGui::Checkbox("循环", &a.loop);
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("勾选：状态持续期间一直重复；不勾：播放一次");
+            }
             ImGui::TableNextColumn();
             if (transient)
             {
@@ -650,9 +751,68 @@ void SettingsWindow::DrawActions()
             row(info.key, info.label, info.transient);
         }
         row(StateMachine::PokeKey(), "被点一下", true);
+        row("drag", "被拖动", true);
         ImGui::EndTable();
     }
     if (changed) Later([this] { _host.ConfigChanged(); });
+}
+
+void SettingsWindow::DrawAssets()
+{
+    Config& c = _host.GetConfig();
+    SectionTitle("素材与装扮", "点一下就在她身上预览。表情可以同时选好几个，模型作者就是这样叠加使用的。");
+
+    const PetModel* model = _host.Model();
+    if (!model)
+    {
+        ImGui::TextDisabled("模型没有加载。");
+        return;
+    }
+    const auto& expressions = model->ExpressionNames();
+    const auto& motions = model->MotionNames();
+
+    ImGui::TextUnformatted("表情");
+    ImGui::SameLine();
+    ImGui::TextDisabled("（可多选）");
+    if (const std::string* name = ChipFlow(expressions, model, _previewExpressions))
+    {
+        auto it = std::find(_previewExpressions.begin(), _previewExpressions.end(), *name);
+        if (it != _previewExpressions.end()) _previewExpressions.erase(it);
+        else _previewExpressions.push_back(*name);
+        auto e = _previewExpressions;
+        Later([this, e] { _host.PreviewAssets(e, ""); });
+    }
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::TextUnformatted("动作");
+    const std::vector<std::string> none;
+    if (const std::string* name = ChipFlow(motions, model, none))
+    {
+        auto e = _previewExpressions;
+        std::string m = *name;
+        Later([this, e, m] { _host.PreviewAssets(e, m); });
+    }
+    ImGui::Dummy(ImVec2(0, 6));
+    if (ImGui::Button("清除选择"))
+    {
+        _previewExpressions.clear();
+        Later([this] { _host.PreviewAssets({}, ""); });
+    }
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    ImGui::TextWrapped("有些素材要搭配才看得见：鲸鱼喷水要先选头顶的鲸鱼或放在桌上的鲸鱼；MoeMoeQ~（挤）要配蛋包饭；"
+                       "魔爪换色要配魔爪；手机换色要在拿出手机的动作里。冒爱心、喵喵手、情绪花花的动画由待机动作驱动。");
+    ImGui::PopStyleColor();
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("装扮");
+    ImGui::SameLine();
+    ImGui::TextDisabled("（任何状态下都一直显示，适合道具、发型和贴纸）");
+    if (const std::string* name = ChipFlow(expressions, model, c.outfit))
+    {
+        auto it = std::find(c.outfit.begin(), c.outfit.end(), *name);
+        if (it != c.outfit.end()) c.outfit.erase(it);
+        else c.outfit.push_back(*name);
+        Later([this] { _host.ConfigChanged(); });
+    }
 }
 
 void SettingsWindow::RefreshHookStatus()
