@@ -20,16 +20,6 @@
 
 namespace Platform
 {
-bool AcquireSingleInstance()
-{
-    std::error_code ec;
-    fs::create_directories(ConfigDir(), ec);
-    const std::string lockPath = (ConfigDir() / "kujira.lock").string();
-    // Intentionally kept open for the life of the process.
-    int fd = open(lockPath.c_str(), O_CREAT | O_RDWR, 0600);
-    return fd >= 0 && flock(fd, LOCK_EX | LOCK_NB) == 0;
-}
-
 #ifndef __APPLE__  // macOS: PlatformMac.mm
 void MakeToolWindow(GLFWwindow*)
 {

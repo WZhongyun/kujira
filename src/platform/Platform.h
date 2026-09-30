@@ -19,6 +19,8 @@ fs::path HomeDir();
 
 // Returns false if another instance already holds the lock.
 bool AcquireSingleInstance();
+// Another process holds that lock: the pet is running or still starting up.
+bool IsPetRunning();
 
 // Hide the pet window from the taskbar / Alt-Tab (tool window on Windows).
 void MakeToolWindow(GLFWwindow* window);

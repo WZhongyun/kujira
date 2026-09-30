@@ -66,12 +66,33 @@ int main(int argc, char** argv)
     const std::string path = "/v1/events/" + agent;
     if (client.Post(path, headers, body, "application/json")) return 0;
 
+    const auto event = nlohmann::json::parse(body, nullptr, false);
+    const std::string name = event.is_object() ? event.value("hook_event_name", "") : "";
+    const auto deliverWhenReady = [&](int tenthsOfSecond) {
+        for (int i = 0; i < tenthsOfSecond; ++i)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (auto res = client.Get("/v1/health"); res && res->status == 200)
+            {
+                client.Post(path, headers, body, "application/json");
+                return;
+            }
+        }
+    };
+
+    // A session that ends while she is still starting up (a short session that
+    // launched her): wait for her so she hears it and can close. This hook runs
+    // synchronously, so only wait when she really is starting.
+    if (name == "SessionEnd")
+    {
+        if (Platform::IsPetRunning()) deliverWhenReady(80);
+        return 0;
+    }
+
     // She isn't running. Optionally start her when a new agent session begins,
     // then deliver this event so she greets it. The flag tells her to close
     // again once the last agent session has ended.
-    if (!config.launchWithAgent) return 0;
-    const auto event = nlohmann::json::parse(body, nullptr, false);
-    if (!event.is_object() || event.value("hook_event_name", "") != "SessionStart") return 0;
+    if (!config.launchWithAgent || name != "SessionStart") return 0;
     // The pet lives next to this program; both are always shipped together.
 #ifdef _WIN32
     const fs::path pet = FileUtil::ExecutableDir() / "Kujira.exe";
@@ -80,14 +101,6 @@ int main(int argc, char** argv)
 #endif
     std::error_code ec;
     if (!fs::exists(pet, ec) || !Platform::LaunchDetached(pet, "--launched-by-agent")) return 0;
-    for (int i = 0; i < 100; ++i)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        if (auto res = client.Get("/v1/health"); res && res->status == 200)
-        {
-            client.Post(path, headers, body, "application/json");
-            break;
-        }
-    }
+    deliverWhenReady(100);
     return 0;
 }
