@@ -35,9 +35,10 @@ fs::path HomeDir()
     return dir;
 }
 
-bool LaunchDetached(const fs::path& exe)
+bool LaunchDetached(const fs::path& exe, const std::string& arg)
 {
     std::wstring cmd = L"\"" + exe.wstring() + L"\"";
+    if (!arg.empty()) cmd += L" " + std::wstring(arg.begin(), arg.end());  // ASCII flags only
     const std::wstring dir = exe.parent_path().wstring();
     STARTUPINFOW si{};
     si.cb = sizeof(si);

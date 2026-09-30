@@ -22,6 +22,10 @@
 
 namespace
 {
+// Started by an agent: after its last session ends, wait this long before closing,
+// so a session that ends and immediately starts again (/clear) doesn't restart her.
+constexpr double kFollowQuitDelay = 15.0;
+
 class Allocator : public Csm::ICubismAllocator
 {
 public:
@@ -127,7 +131,7 @@ std::string StripSuffix(std::string name, const std::string& suffix)
 }
 }
 
-App::App() = default;
+App::App(bool launchedByAgent) : _launchedByAgent(launchedByAgent) {}
 
 App::~App()
 {
@@ -743,6 +747,36 @@ void App::UpdateTalk(double now)
     _nextChat = now + interval * std::uniform_real_distribution<double>(0.7, 1.3)(_rng);
 }
 
+void App::TrackAgentSession(const PetEvent& event, double now)
+{
+    if (!_launchedByAgent) return;
+    const std::string id = event.agent + ":" + event.sessionId;
+    if (event.kind == PetEvent::Kind::SessionEnd)
+    {
+        _agentSessions.erase(id);
+        if (_agentSessions.empty()) _followQuitAt = now + kFollowQuitDelay;
+    }
+    else
+    {
+        // Any event counts: sessions that began before she was started show up here too.
+        _agentSessions.insert(id);
+        _followQuitAt = -1;
+    }
+}
+
+void App::UpdateFollowQuit(double now)
+{
+    if (_followQuitAt < 0 || now < _followQuitAt) return;
+    if (!_config.launchWithAgent)
+    {
+        _followQuitAt = -1;  // turned off since she was started: stay
+        return;
+    }
+    // Let the farewell and its bubble finish, and never close under an open settings window.
+    if (_states->CurrentState() == StateMachine::State::Farewell || _overlay.BubbleVisible(now) || _settings->IsOpen()) return;
+    _quit = true;
+}
+
 void App::OnToolbarButton(PetOverlay::Button button)
 {
     switch (button)
@@ -839,7 +873,9 @@ int App::Run()
         {
             _states->OnEvent(event, frameStart);
             SayForEvent(event);
+            TrackAgentSession(event, frameStart);
         }
+        UpdateFollowQuit(frameStart);
         _states->Update(frameStart, _config.sleepMinutes);
         if (_states->ConsumeChanged())
         {

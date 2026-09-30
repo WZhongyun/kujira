@@ -707,7 +707,7 @@ void SettingsWindow::DrawAgents()
         }
         if (c.claudeHookMode != "command")
         {
-            Row("跟随 Claude Code 启动", "（开始新会话时自动打开她）");
+            Row("跟随 Claude Code 启动", "（开始新会话时自动打开她，所有会话结束后自动关闭）");
             if (ImGui::Checkbox("##launch", &c.launchWithAgent)) Later([this] { _host.ConfigChanged(); });
         }
 
