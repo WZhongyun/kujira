@@ -616,6 +616,10 @@ void SettingsWindow::DrawActions()
             ImGui::TableNextColumn();
             ImGui::AlignTextToFramePadding();
             ImGui::TextUnformatted(label);
+            if (std::strcmp(key, StateMachine::Key(StateMachine::State::Farewell)) == 0 && ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("由 Claude Code 启动时，最后一个会话结束后播完这个动作就关闭");
+            }
             ImGui::TableNextColumn();
             changed |= NameCombo("##exp", a.expression, expressions, "（无）");
             ImGui::TableNextColumn();

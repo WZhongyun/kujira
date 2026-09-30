@@ -22,9 +22,10 @@
 
 namespace
 {
-// Started by an agent: after its last session ends, wait this long before closing,
-// so a session that ends and immediately starts again (/clear) doesn't restart her.
-constexpr double kFollowQuitDelay = 15.0;
+// Started by an agent: after its last session ends she closes once the farewell
+// action's hold time is over, but never sooner than this, so a session that ends
+// and immediately starts again (/clear) doesn't close and restart her.
+constexpr double kMinFollowQuitDelay = 1.0;
 
 class Allocator : public Csm::ICubismAllocator
 {
@@ -754,7 +755,12 @@ void App::TrackAgentSession(const PetEvent& event, double now)
     if (event.kind == PetEvent::Kind::SessionEnd)
     {
         _agentSessions.erase(id);
-        if (_agentSessions.empty()) _followQuitAt = now + kFollowQuitDelay;
+        if (_agentSessions.empty())
+        {
+            auto it = _config.actions.find(StateMachine::Key(StateMachine::State::Farewell));
+            const double hold = it != _config.actions.end() ? it->second.holdSeconds : 0.0;
+            _followQuitAt = now + std::max(hold, kMinFollowQuitDelay);
+        }
     }
     else
     {
@@ -772,8 +778,8 @@ void App::UpdateFollowQuit(double now)
         _followQuitAt = -1;  // turned off since she was started: stay
         return;
     }
-    // Let the farewell and its bubble finish, and never close under an open settings window.
-    if (_states->CurrentState() == StateMachine::State::Farewell || _overlay.BubbleVisible(now) || _settings->IsOpen()) return;
+    // Never close under an open settings window.
+    if (_settings->IsOpen()) return;
     _quit = true;
 }
 
