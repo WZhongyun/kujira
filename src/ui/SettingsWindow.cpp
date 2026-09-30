@@ -24,7 +24,7 @@ constexpr int kWidth = 960;
 constexpr int kHeight = 620;
 constexpr float kLabelColumn = 400.0f;
 
-const char* kPages[] = { "常规", "外观与动画", "气泡与台词", "动作映射", "素材与装扮", "Agent 接入", "关于" };
+const char* kPages[] = { "常规", "外观与动画", "气泡与台词", "状态映射", "素材与装扮", "Agent 接入", "关于" };
 
 bool NameCombo(const char* id, std::string& value, const std::vector<std::string>& names, const char* noneLabel)
 {
@@ -503,7 +503,7 @@ void SettingsWindow::DrawAppearance()
     {
         Later([this] { _host.WindowSizeChanged(); });
     }
-    Row("动作帧率", "（有事件时）");
+    Row("活跃帧率", "（有事件、互动时）");
     ImGui::SliderInt("##afps", &c.activeFps, 5, 120, "%d fps");
     changed |= ImGui::IsItemDeactivatedAfterEdit();
     Row("空闲帧率");
@@ -512,7 +512,7 @@ void SettingsWindow::DrawAppearance()
 
     const PetModel* model = _host.Model();
     static const std::vector<std::string> kNoNames;
-    Row("待机动作");
+    Row("待机动画");
     changed |= NameCombo("##idle", c.idleMotion, model ? model->MotionNames() : kNoNames, "（无）");
 
     ImGui::Separator();
@@ -540,7 +540,7 @@ void SettingsWindow::DrawAppearance()
             Platform::OpenFolder(model->Directory());
         }
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-        ImGui::TextWrapped("当前：%s（%d 个表情，%d 个动作）", FileUtil::ToUtf8(model->Directory()).c_str(),
+        ImGui::TextWrapped("当前：%s（%d 个表情，%d 个动画）", FileUtil::ToUtf8(model->Directory()).c_str(),
                            static_cast<int>(model->ExpressionNames().size()), static_cast<int>(model->MotionNames().size()));
         ImGui::PopStyleColor();
     }
@@ -663,7 +663,7 @@ void SettingsWindow::DrawDialogue()
 void SettingsWindow::DrawActions()
 {
     Config& c = _host.GetConfig();
-    SectionTitle("动作映射", "Claude Code 处于每种状态时，她显示哪些表情、播放哪个动作。表情可以多选叠加，试播可以直接预览。");
+    SectionTitle("状态映射", "Claude Code 处于每种状态时，她显示哪些表情、播放哪个动画。表情可以多选叠加，试播可以直接预览。");
 
     const PetModel* model = _host.Model();
     static const std::vector<std::string> kNoNames;
@@ -678,7 +678,7 @@ void SettingsWindow::DrawActions()
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("状态", ImGuiTableColumnFlags_WidthFixed, 100 * s);
         ImGui::TableSetupColumn("表情");
-        ImGui::TableSetupColumn("动作");
+        ImGui::TableSetupColumn("动画");
         ImGui::TableSetupColumn("持续", ImGuiTableColumnFlags_WidthFixed, 90 * s);
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 64 * s);
         ImGui::TableHeadersRow();
@@ -692,7 +692,7 @@ void SettingsWindow::DrawActions()
             ImGui::TextUnformatted(label);
             if (std::strcmp(key, StateMachine::Key(StateMachine::State::Farewell)) == 0 && ImGui::IsItemHovered())
             {
-                ImGui::SetTooltip("由 Claude Code 启动时，最后一个会话结束后播完这个动作就关闭");
+                ImGui::SetTooltip("由 Claude Code 启动时，最后一个会话结束后播完这一项就关闭");
             }
             ImGui::TableNextColumn();
             changed |= MultiNameCombo("##exp", a.expressions, expressions, model, "（无）");
@@ -783,7 +783,7 @@ void SettingsWindow::DrawAssets()
         Later([this, e] { _host.PreviewAssets(e, ""); });
     }
     ImGui::Dummy(ImVec2(0, 6));
-    ImGui::TextUnformatted("动作");
+    ImGui::TextUnformatted("动画");
     const std::vector<std::string> none;
     if (const std::string* name = ChipFlow(motions, model, none))
     {
@@ -799,7 +799,7 @@ void SettingsWindow::DrawAssets()
     }
     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     ImGui::TextWrapped("有些素材要搭配才看得见：鲸鱼喷水要先选头顶的鲸鱼或放在桌上的鲸鱼；MoeMoeQ~（挤）要配蛋包饭；"
-                       "魔爪换色要配魔爪；手机换色要在拿出手机的动作里。冒爱心、喵喵手、情绪花花的动画由待机动作驱动。");
+                       "魔爪换色要配魔爪；手机换色要在自拍手机动画里。冒爱心、喵喵手、情绪花花的动态效果由待机动画驱动。");
     ImGui::PopStyleColor();
 
     ImGui::Separator();
