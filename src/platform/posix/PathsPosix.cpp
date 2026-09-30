@@ -3,7 +3,10 @@
 #include "platform/Platform.h"
 
 #include <cstdlib>
+#include <chrono>
 #include <fcntl.h>
+#include <sys/file.h>
+#include <thread>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -24,6 +27,37 @@ fs::path ConfigDir()
     fs::path base = (xdg && *xdg) ? fs::path(xdg) : HomeDir() / ".config";
     return base / "kujira";
 #endif
+}
+
+static std::string LockPath()
+{
+    return (ConfigDir() / "kujira.lock").string();
+}
+
+bool AcquireSingleInstance()
+{
+    std::error_code ec;
+    fs::create_directories(ConfigDir(), ec);
+    // Intentionally kept open for the life of the process.
+    const int fd = open(LockPath().c_str(), O_CREAT | O_RDWR, 0600);
+    if (fd < 0) return false;
+    // kujira-hook probes this lock for a moment (IsPetRunning); retry briefly so a
+    // probe never makes a starting pet think another one is running.
+    for (int attempt = 0; attempt < 5; ++attempt)
+    {
+        if (flock(fd, LOCK_EX | LOCK_NB) == 0) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    return false;
+}
+
+bool IsPetRunning()
+{
+    const int fd = open(LockPath().c_str(), O_RDWR);
+    if (fd < 0) return false;
+    const bool held = flock(fd, LOCK_EX | LOCK_NB) != 0;
+    close(fd);  // releases the probe lock if we got it
+    return held;
 }
 
 bool LaunchDetached(const fs::path& exe, const std::string& arg)

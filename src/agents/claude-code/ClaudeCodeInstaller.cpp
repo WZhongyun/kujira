@@ -54,7 +54,7 @@ std::string Lower(std::string s)
     return s;
 }
 
-ojson DesiredEntry(const Config& c)
+ojson DesiredEntry(const Config& c, const char* event)
 {
     if (c.claudeHookMode == "command")
     {
@@ -70,11 +70,20 @@ ojson DesiredEntry(const Config& c)
     // always exits 0: a closed pet never shows up as a hook error, which a
     // plain HTTP hook would (connection refused). HTTP hooks also don't run on
     // SessionStart. async: Claude Code never waits for it.
-    return { { "type", "command" },
-             { "command", FileUtil::ToUtf8(HookExe()) },
-             { "args", { kAgentId } },
-             { "async", true },
-             { "timeout", 5 } };
+    ojson entry = { { "type", "command" }, { "command", FileUtil::ToUtf8(HookExe()) }, { "args", { kAgentId } } };
+    if (std::string(event) == "SessionEnd")
+    {
+        // Synchronous: an async hook can be killed when Claude Code exits, and this
+        // one may wait a few seconds for a pet that is still starting up. Claude Code
+        // raises its SessionEnd budget to this timeout.
+        entry["timeout"] = 10;
+    }
+    else
+    {
+        entry["async"] = true;
+        entry["timeout"] = 5;
+    }
+    return entry;
 }
 
 bool IsOurs(const ojson& entry)
@@ -269,7 +278,6 @@ HookStatus ClaudeCodeAdapter::Status(const Config& config) const
         return status;
     }
 
-    const ojson desired = DesiredEntry(config);
     int ours = 0, exact = 0, eventsCovered = 0;
     bool missingExe = false;
     if (root.contains("hooks"))
@@ -277,6 +285,7 @@ HookStatus ClaudeCodeAdapter::Status(const Config& config) const
         for (const char* event : kEvents)
         {
             bool covered = false;
+            const ojson desired = DesiredEntry(config, event);
             auto it = root["hooks"].find(event);
             if (it == root["hooks"].end() || !it->is_array()) continue;
             for (const auto& group : *it)
@@ -341,7 +350,7 @@ bool ClaudeCodeAdapter::Install(const Config& config, std::string* message) cons
     {
         ojson& groups = root["hooks"][event];
         if (!groups.is_array()) groups = ojson::array();
-        groups.push_back({ { "hooks", ojson::array({ DesiredEntry(config) }) } });
+        groups.push_back({ { "hooks", ojson::array({ DesiredEntry(config, event) }) } });
     }
     if (!Write(path, root, message)) return false;
 

@@ -149,13 +149,6 @@ std::wstring ExePath()
 
 namespace Platform
 {
-bool AcquireSingleInstance()
-{
-    // Intentionally leaked: the mutex lives as long as the process.
-    HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\KujiraDesktopPet");
-    return mutex != nullptr && GetLastError() != ERROR_ALREADY_EXISTS;
-}
-
 void MakeToolWindow(GLFWwindow* window)
 {
     HWND hwnd = glfwGetWin32Window(window);

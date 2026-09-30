@@ -5,8 +5,29 @@
 #include <windows.h>
 #include <shlobj.h>
 
+namespace
+{
+const wchar_t* kInstanceMutex = L"Local\\KujiraDesktopPet";
+}
+
 namespace Platform
 {
+bool AcquireSingleInstance()
+{
+    // Intentionally leaked: the mutex lives as long as the process.
+    HANDLE mutex = CreateMutexW(nullptr, TRUE, kInstanceMutex);
+    return mutex != nullptr && GetLastError() != ERROR_ALREADY_EXISTS;
+}
+
+bool IsPetRunning()
+{
+    // Only looks: opening an existing mutex doesn't take it.
+    HANDLE mutex = OpenMutexW(SYNCHRONIZE, FALSE, kInstanceMutex);
+    if (!mutex) return false;
+    CloseHandle(mutex);
+    return true;
+}
+
 fs::path ConfigDir()
 {
     PWSTR appData = nullptr;
