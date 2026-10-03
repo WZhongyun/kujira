@@ -930,8 +930,14 @@ int App::Run()
         }
         UpdateFollowQuit(frameStart);
         _states->Update(frameStart, _config.sleepMinutes);
+        const bool retriggered = _states->ConsumeRetriggered();
         if (_states->ConsumeChanged())
         {
+            ApplyAction(_states->CurrentKey());
+        }
+        else if (retriggered && _model && !_model->IsMotionPlaying())
+        {
+            // Same event again after its one-shot animation ended: play it again.
             ApplyAction(_states->CurrentKey());
         }
         UpdateTalk(frameStart);

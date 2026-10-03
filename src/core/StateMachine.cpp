@@ -120,6 +120,9 @@ void StateMachine::OnEvent(const PetEvent& event, double now)
     case PetEvent::Kind::Attention:    SetSessionState(s, State::Attention, now); break;
     case PetEvent::Kind::Stop:         SetSessionState(s, State::Done, now); break;
     }
+    // Same state again while it is on screen: the key won't change, so flag it for
+    // the caller to replay a one-shot animation that has already ended.
+    if (_currentKey == Key(s.state) && now >= _overlayUntil) _retriggered = true;
 }
 
 void StateMachine::ShowOverlay(const std::string& key, float seconds, double now)
@@ -192,6 +195,13 @@ void StateMachine::Update(double now, int sleepMinutes)
         _currentKey = key;
         _changed = true;
     }
+}
+
+bool StateMachine::ConsumeRetriggered()
+{
+    bool r = _retriggered;
+    _retriggered = false;
+    return r;
 }
 
 bool StateMachine::ConsumeChanged()

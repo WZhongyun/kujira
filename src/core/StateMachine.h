@@ -53,6 +53,8 @@ public:
     bool IsBusy() const;
     // True once after the displayed key changed.
     bool ConsumeChanged();
+    // True once after an event re-entered the state already on screen.
+    bool ConsumeRetriggered();
 
     size_t SessionCount() const { return _sessions.size(); }
     double LastEventTime() const { return _lastEventTime; }
@@ -80,4 +82,5 @@ private:
     State _currentState = State::Idle;
     std::string _currentKey = "idle";
     bool _changed = true;
+    bool _retriggered = false;
 };
