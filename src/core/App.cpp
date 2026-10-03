@@ -364,6 +364,13 @@ void App::Preview(const std::string& key)
     auto it = _config.actions.find(key);
     float hold = (it != _config.actions.end() && it->second.holdSeconds > 0) ? it->second.holdSeconds : 3.0f;
     _states->ShowOverlay(key, hold, glfwGetTime());
+    // Already showing this action (clicked again): the displayed key does not change,
+    // so nothing would replay it. Restart its animation once the last one has ended;
+    // one still playing is left alone so quick clicks don't keep cutting it off.
+    if (_model && _states->CurrentKey() == key && !_model->IsMotionPlaying())
+    {
+        ApplyAction(key);
+    }
 }
 
 void App::MouseButtonCallback(GLFWwindow* window, int button, int action, int)

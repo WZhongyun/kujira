@@ -40,6 +40,7 @@ public:
     bool PlayMotion(const std::string& name, bool loop = false);
     // Fades out the motion started by PlayMotion.
     void StopMotion();
+    bool IsMotionPlaying() const { return _stateMotions && !_stateMotions->IsFinished(); }
     void SetIdleMotion(const std::string& name);
 
     const std::vector<std::string>& ExpressionNames() const { return _expressionNames; }
