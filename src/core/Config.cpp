@@ -107,7 +107,6 @@ Config Config::Load()
             Get(j, "showToolbar", c.showToolbar);
             Get(j, "modelDir", c.modelDir);
             Get(j, "idleMotion", c.idleMotion);
-            Get(j, "outfit", c.outfit);
             Get(j, "actionsVersion", c.actionsVersion);
             Get(j, "port", c.port);
             Get(j, "token", c.token);
@@ -178,7 +177,6 @@ bool Config::Save() const
     j["showToolbar"] = showToolbar;
     j["modelDir"] = modelDir;
     j["idleMotion"] = idleMotion;
-    j["outfit"] = outfit;
     j["port"] = port;
     j["token"] = token;
     j["claudeHookMode"] = claudeHookMode;

@@ -491,12 +491,6 @@ void SettingsWindow::DrawAppearance()
     static const std::vector<std::string> kNoNames;
     Row("待机动画");
     changed |= NameCombo("##idle", c.idleMotion, model ? model->MotionNames() : kNoNames, "（无）");
-    Row("常驻装扮", "（任何状态都显示）");
-    changed |= MultiNameCombo("##outfit", c.outfit, model ? model->ExpressionNames() : kNoNames, model, "（无）");
-    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-    ImGui::TextWrapped("适合道具、发型和贴纸，例如头顶鲸（鲸鱼）、单边马尾、贴纸、眼镜。有些素材要搭配才看得见："
-                       "鲸鱼喷水要配头顶或桌上的鲸鱼，MoeMoeQ~（挤）要配蛋包饭，魔爪换色要配魔爪。");
-    ImGui::PopStyleColor();
 
     ImGui::Separator();
     Row("模型文件夹", "（留空自动查找）");

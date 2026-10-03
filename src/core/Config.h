@@ -44,7 +44,6 @@ struct Config
     // Model
     std::string modelDir;      // "" = first model under assets/models
     std::string idleMotion = "idle";
-    std::vector<std::string> outfit;  // expressions that stay on in every state (props, hair, stickers)
 
     // Agents
     int port = 38111;

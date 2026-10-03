@@ -352,9 +352,7 @@ void App::ApplyAction(const std::string& key)
     if (!_model) return;
     auto it = _config.actions.find(key);
     const StateAction action = it != _config.actions.end() ? it->second : StateAction{};
-    std::vector<std::string> expressions = _config.outfit;
-    expressions.insert(expressions.end(), action.expressions.begin(), action.expressions.end());
-    _model->SetExpressions(expressions);
+    _model->SetExpressions(action.expressions);
     if (action.motion.empty() || !_model->PlayMotion(action.motion, action.loop))
     {
         _model->StopMotion();
