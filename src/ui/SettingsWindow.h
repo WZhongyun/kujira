@@ -21,6 +21,8 @@ public:
     ~SettingsWindow();
 
     void Open();
+    // Opens on 外观与动画, where the model folder and its error are.
+    void OpenModelPage();
     void Close();
     bool IsOpen() const { return _window != nullptr; }
     // The user is working in the window right now (input in the last 0.5 s).

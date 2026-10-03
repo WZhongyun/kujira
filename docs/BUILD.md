@@ -32,7 +32,7 @@
 
    用 VS 2026 时把生成器换成对应版本，或者直接用 Visual Studio 打开仓库文件夹（它会识别 CMakeLists.txt）。
 
-5. 运行 `build\Release\Kujira.exe`。编译后会自动把着色器和 `assets` 复制到 exe 旁边，整个 `build\Release` 文件夹可以挪到别处使用。旁边的 `kujira-hook.exe` 是转发 Claude Code 事件的小程序，要和 `Kujira.exe` 放在一起。
+5. 运行 `build\Release\Kujira.exe`。编译后会自动把着色器复制到 exe 旁边的 `FrameworkShaders`，把 `assets/models/` 里的模型复制到 exe 旁边的 `models`，整个 `build\Release` 文件夹可以挪到别处使用。旁边的 `kujira-hook.exe` 是转发 Claude Code 事件的小程序，要和 `Kujira.exe` 放在一起。
 
 ### 常见问题
 
