@@ -158,6 +158,12 @@ SettingsWindow::~SettingsWindow()
     Close();
 }
 
+void SettingsWindow::OpenModelPage()
+{
+    _page = 1;
+    Open();
+}
+
 void SettingsWindow::Open()
 {
     _activeUntil = glfwGetTime() + 1.0;
@@ -522,7 +528,7 @@ void SettingsWindow::DrawAppearance()
     // then they start at the left edge instead of running off the page.
     {
         const ImGuiStyle& st = ImGui::GetStyle();
-        const float buttons = ImGui::CalcTextSize("重新加载模型").x + ImGui::CalcTextSize("打开模型文件夹").x +
+        const float buttons = ImGui::CalcTextSize("重新加载模型").x + ImGui::CalcTextSize("打开 models 文件夹").x +
                               st.FramePadding.x * 4 + st.ItemSpacing.x;
         const float column = kLabelColumn * st.FontScaleDpi;
         if (column + buttons <= ImGui::GetContentRegionMax().x) ImGui::SetCursorPosX(column);
@@ -532,13 +538,24 @@ void SettingsWindow::DrawAppearance()
         c.modelDir = _modelDirEdit;
         Later([this] { _host.ConfigChanged(); _host.ReloadModel(); });
     }
+    ImGui::SameLine();
     if (model)
     {
-        ImGui::SameLine();
         if (ImGui::Button("打开模型文件夹"))
         {
             Platform::OpenFolder(model->Directory());
         }
+    }
+    else if (ImGui::Button("打开 models 文件夹"))
+    {
+        // Made on demand so there is somewhere to drop the model.
+        const fs::path dir = ModelRoots().front();
+        std::error_code ec;
+        fs::create_directories(dir, ec);
+        Platform::OpenFolder(dir);
+    }
+    if (model)
+    {
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
         ImGui::TextWrapped("当前：%s（%d 个表情，%d 个动画）", FileUtil::ToUtf8(model->Directory()).c_str(),
                            static_cast<int>(model->ExpressionNames().size()), static_cast<int>(model->MotionNames().size()));

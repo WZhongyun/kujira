@@ -232,7 +232,7 @@ void App::InitCubism()
     Csm::CubismFramework::Initialize();
 }
 
-fs::path App::ResolveModelDir() const
+fs::path App::ResolveModelDir(std::string* error) const
 {
     auto hasModel = [](const fs::path& dir) {
         std::error_code ec;
@@ -245,34 +245,69 @@ fs::path App::ResolveModelDir() const
         return false;
     };
 
+    // A folder picked in settings wins; a relative one is next to the exe, not the
+    // working directory, so the whole folder can be moved around.
+    std::string manualError;
     if (!_config.modelDir.empty())
     {
         fs::path dir = FileUtil::FromUtf8(_config.modelDir);
+        if (dir.is_relative()) dir = FileUtil::ExecutableDir() / dir;
         if (hasModel(dir)) return dir;
+        manualError = "设置里填写的模型文件夹找不到模型（没有 .model3.json）：" + FileUtil::ToUtf8(dir);
     }
+
+    // Then models/ next to the exe (release layout), then assets/models/ (older
+    // builds). Either the folder holds model folders, or the model files directly.
     std::vector<fs::path> candidates;
     std::error_code ec;
-    for (const auto& root : { FileUtil::ExecutableDir() / "assets" / "models" })
+    for (const fs::path& root : ModelRoots())
     {
+        if (hasModel(root))
+        {
+            candidates.push_back(root);
+            break;
+        }
+        std::vector<fs::path> found;
         for (const auto& e : fs::directory_iterator(root, ec))
         {
-            if (hasModel(e.path())) candidates.push_back(e.path());
+            if (hasModel(e.path())) found.push_back(e.path());
+        }
+        if (!found.empty())
+        {
+            std::sort(found.begin(), found.end());
+            candidates.push_back(found.front());
+            break;
         }
     }
-    std::sort(candidates.begin(), candidates.end());
-    return candidates.empty() ? fs::path() : candidates.front();
+    if (!candidates.empty())
+    {
+        if (error && !manualError.empty())
+            *error = manualError + "\n已改用自动找到的模型：" + FileUtil::ToUtf8(candidates.front());
+        return candidates.front();
+    }
+
+    if (error)
+    {
+        std::string text = manualError.empty() ? "没有找到模型。" : manualError + "\n自动查找也没有找到模型。";
+        text += "\n请把模型文件夹（里面有 .model3.json 的那个）放到：\n  " + FileUtil::ToUtf8(ModelRoots().front()) +
+                "\n然后点「重新加载模型」；也可以在上面填写模型文件夹的路径。";
+        *error = text;
+    }
+    return fs::path();
+}
+
+std::vector<fs::path> ModelRoots()
+{
+    const fs::path exe = FileUtil::ExecutableDir();
+    return { exe / "models", exe / "assets" / "models" };
 }
 
 void App::LoadModel()
 {
     _modelError.clear();
     _fitted = false;
-    const fs::path dir = ResolveModelDir();
-    if (dir.empty())
-    {
-        _modelError = "没有找到模型。请把模型文件夹放到 assets/models/ 下，或在设置里填写模型文件夹路径。";
-        return;
-    }
+    const fs::path dir = ResolveModelDir(&_modelError);
+    if (dir.empty()) return;
     auto model = std::make_unique<PetModel>();
     std::string error;
     if (!model->Load(dir, &error))
@@ -893,7 +928,7 @@ int App::Run()
     if (!_modelError.empty())
     {
         std::fprintf(stderr, "%s\n", _modelError.c_str());
-        OpenSettings();
+        _settings->OpenModelPage();
     }
 
     while (!_quit && !glfwWindowShouldClose(_window))

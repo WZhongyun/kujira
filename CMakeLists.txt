@@ -207,9 +207,10 @@ else()
   target_compile_options(Kujira PRIVATE -Wall -Wextra -Wno-unused-parameter)
 endif()
 
-# Runtime files next to the executable: Framework shaders and local models.
+# Runtime files next to the executable: Framework shaders, and local models in
+# models/ (the app also still reads assets/models/ there, as older builds made it).
 set(_shader_dir "${CUBISM_FRAMEWORK_DIR}/src/Rendering/OpenGL/Shaders/Standard")
 add_custom_command(TARGET Kujira POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory "${_shader_dir}" "$<TARGET_FILE_DIR:Kujira>/FrameworkShaders"
-  COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:Kujira>/assets"
-  COMMENT "Copying shaders and assets next to Kujira")
+  COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets/models" "$<TARGET_FILE_DIR:Kujira>/models"
+  COMMENT "Copying shaders and models next to Kujira")

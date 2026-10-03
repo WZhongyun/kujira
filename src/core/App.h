@@ -4,6 +4,7 @@
 #include <random>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "core/Config.h"
 #include "core/Dialogue.h"
@@ -16,6 +17,10 @@
 struct GLFWwindow;
 class PetModel;
 class SettingsWindow;
+
+// Where models are looked for when none is picked in settings, in order: models/
+// next to the exe, then assets/models/ (layout of older builds).
+std::vector<fs::path> ModelRoots();
 
 // What the settings window may read and change.
 class AppHost
@@ -83,7 +88,7 @@ private:
     void FitWindowToModel();
     void SaveWindowPosition();
     void OpenSettings();
-    fs::path ResolveModelDir() const;
+    fs::path ResolveModelDir(std::string* error) const;
 
     // Speech bubble, filtered by the bubble settings.
     void Say(const std::string& text, float seconds, PetOverlay::Priority priority);
