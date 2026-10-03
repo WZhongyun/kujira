@@ -64,6 +64,9 @@ void WaitEvents(double timeout);
 // Open a folder in the system file manager.
 void OpenFolder(const fs::path& folder);
 
+// Open an http(s) link in the default browser.
+void OpenUrl(const std::string& url);
+
 // Environment variable as UTF-8 ("" if missing).
 std::string GetEnv(const char* name);
 

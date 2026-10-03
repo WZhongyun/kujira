@@ -7,7 +7,7 @@
 | 内容 | 放到哪里 | 说明 |
 | --- | --- | --- |
 | Cubism SDK for Native（已验证 5-r.5） | `third_party/CubismSdkForNative/` | 从 [Live2D 官网](https://www.live2d.com/sdk/download/native/) 下载，解压后改名，里面应直接看到 `Core`、`Framework` 两个文件夹 |
-| 模型文件夹（例如 `Kujira-Live2D`） | `assets/models/Kujira-Live2D/` | 见 [assets/models/README.md](../assets/models/README.md)；模型里的 `icon.png` 会用作程序图标 |
+| 模型文件夹（例如 `Kujira-Live2D`） | `assets/models/Kujira-Live2D/` | 按 [这个视频](https://www.bilibili.com/video/BV16yYi69EQT/) 获取，放法见 [assets/models/README.md](../assets/models/README.md)；模型里的 `icon.png` 会用作程序图标 |
 
 首次配置时 CMake 会从 GitHub 下载 GLFW、GLEW、Dear ImGui、FreeType、cpp-httplib、nlohmann/json，需要能访问 GitHub，并且装了 Git。
 

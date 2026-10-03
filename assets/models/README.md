@@ -1,5 +1,9 @@
 # 模型放这里
 
+> 普通用户不需要自己获取模型：[Releases](https://github.com/WZhongyun/Kujira/releases) 里的压缩包已经带好了。
+>
+> 自己编译时，按 [这个视频](https://www.bilibili.com/video/BV16yYi69EQT/) 获取「DS鲸鱼娘」模型（作者：[B 站 @氵六青](https://space.bilibili.com/11272072)）。
+
 把 Live2D 模型文件夹复制到这个目录下，例如：
 
 ```

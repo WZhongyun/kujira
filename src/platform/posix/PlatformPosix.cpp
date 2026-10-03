@@ -148,6 +148,19 @@ void OpenFolder(const fs::path& folder)
     (void)r;
 }
 
+void OpenUrl(const std::string& url)
+{
+    // Only plain http(s) links from our own UI; quote anyway.
+    if (url.find('"') != std::string::npos) return;
+#ifdef __APPLE__
+    std::string cmd = "open \"" + url + "\" &";
+#else
+    std::string cmd = "xdg-open \"" + url + "\" >/dev/null 2>&1 &";
+#endif
+    int r = std::system(cmd.c_str());
+    (void)r;
+}
+
 std::string GetEnv(const char* name)
 {
     const char* v = std::getenv(name);

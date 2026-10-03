@@ -329,6 +329,11 @@ void OpenFolder(const fs::path& folder)
     ShellExecuteW(nullptr, L"open", folder.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
 
+void OpenUrl(const std::string& url)
+{
+    ShellExecuteW(nullptr, L"open", Widen(url).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+}
+
 std::string GetEnv(const char* name)
 {
     std::wstring wname = Widen(name);

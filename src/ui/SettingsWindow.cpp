@@ -840,11 +840,7 @@ void SettingsWindow::DrawAgents()
         ImGui::PopStyleColor();
     }
 
-    ImGui::BeginDisabled();
-    ImGui::TextUnformatted("Codex CLI、Gemini CLI");
-    ImGui::SameLine();
-    ImGui::TextDisabled("即将支持");
-    ImGui::EndDisabled();
+    ImGui::TextDisabled("需要其它 Agent 请联系 Kujira 作者");
     ImGui::Separator();
 
     const EventServer& server = _host.Server();
@@ -881,6 +877,16 @@ void SettingsWindow::DrawAbout()
 {
     SectionTitle("关于", "鲸鱼娘（Kujira）：陪你写代码的桌面看板娘。");
     ImGui::TextWrapped("非官方的个人工具，与 Anthropic 及任何 Agent 厂商无关。支持 Claude Code，后续会接入更多 Agent。");
+    ImGui::Spacing();
+    if (ImGui::Button("模型作者（B 站）"))
+    {
+        Platform::OpenUrl("https://space.bilibili.com/11272072");
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Kujira 作者（B 站）"))
+    {
+        Platform::OpenUrl("https://space.bilibili.com/25308604");
+    }
     ImGui::Spacing();
     ImGui::TextWrapped("This application contains Live2D Cubism SDK developed by Live2D Inc.");
     ImGui::Spacing();
