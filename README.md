@@ -125,4 +125,4 @@ third_party/   Cubism SDK 放这里（不入库）
 
 - 模型「DS鲸鱼娘」作者：[B 站 @氵六青](https://space.bilibili.com/11272072)。模型版权归原作者所有，经作者同意随 Release 一起发布；请遵守模型附带的使用须知，不要提交到本仓库。
 - This application contains Live2D Cubism SDK developed by Live2D Inc. SDK 需自行下载并同意其许可协议，不包含在本仓库中。
-- 本仓库代码：Apache License 2.0
+- 本仓库代码许可：Apache License 2.0（见 [LICENSE](LICENSE)）
