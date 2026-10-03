@@ -24,7 +24,7 @@ constexpr int kWidth = 960;
 constexpr int kHeight = 620;
 constexpr float kLabelColumn = 400.0f;
 
-const char* kPages[] = { "常规", "外观与动画", "气泡与台词", "状态映射", "素材与装扮", "Agent 接入", "关于" };
+const char* kPages[] = { "常规", "外观与动画", "气泡与台词", "状态映射", "Agent 接入", "关于" };
 
 bool NameCombo(const char* id, std::string& value, const std::vector<std::string>& names, const char* noneLabel)
 {
@@ -96,34 +96,6 @@ bool MultiNameCombo(const char* id, std::vector<std::string>& values, const std:
         ImGui::EndCombo();
     }
     return changed;
-}
-
-// A row of toggle chips that wraps at the window edge. Returns the clicked name.
-const std::string* ChipFlow(const std::vector<std::string>& names, const PetModel* model,
-                            const std::vector<std::string>& selected)
-{
-    const std::string* clicked = nullptr;
-    const ImGuiStyle& st = ImGui::GetStyle();
-    const float right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
-    for (size_t i = 0; i < names.size(); ++i)
-    {
-        const std::string label = Label(model, names[i]);
-        const float w = ImGui::CalcTextSize(label.c_str()).x + st.FramePadding.x * 2;
-        if (i > 0 && ImGui::GetItemRectMax().x + st.ItemSpacing.x + w <= right) ImGui::SameLine();
-        const bool on = std::find(selected.begin(), selected.end(), names[i]) != selected.end();
-        ImGui::PushID(static_cast<int>(i));
-        if (on)
-        {
-            ImGui::PushStyleColor(ImGuiCol_Button, Theme::Hex(Theme::kAccent));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::Hex(Theme::kAccent, 0.85f));
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
-        }
-        if (ImGui::Button(label.c_str())) clicked = &names[i];
-        if (on) ImGui::PopStyleColor(3);
-        if (label != names[i] && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", names[i].c_str());
-        ImGui::PopID();
-    }
-    return clicked;
 }
 
 // Loads the model icon as a texture for the sidebar and as the window icon.
@@ -383,8 +355,7 @@ void SettingsWindow::Frame()
     case 1: DrawAppearance(); break;
     case 2: DrawDialogue(); break;
     case 3: DrawActions(); break;
-    case 4: DrawAssets(); break;
-    case 5: DrawAgents(); break;
+    case 4: DrawAgents(); break;
     default: DrawAbout(); break;
     }
     ImGui::EndChild();
@@ -520,6 +491,12 @@ void SettingsWindow::DrawAppearance()
     static const std::vector<std::string> kNoNames;
     Row("待机动画");
     changed |= NameCombo("##idle", c.idleMotion, model ? model->MotionNames() : kNoNames, "（无）");
+    Row("常驻装扮", "（任何状态都显示）");
+    changed |= MultiNameCombo("##outfit", c.outfit, model ? model->ExpressionNames() : kNoNames, model, "（无）");
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    ImGui::TextWrapped("适合道具、发型和贴纸，例如头顶鲸（鲸鱼）、单边马尾、贴纸、眼镜。有些素材要搭配才看得见："
+                       "鲸鱼喷水要配头顶或桌上的鲸鱼，MoeMoeQ~（挤）要配蛋包饭，魔爪换色要配魔爪。");
+    ImGui::PopStyleColor();
 
     ImGui::Separator();
     Row("模型文件夹", "（留空自动查找）");
@@ -772,64 +749,6 @@ void SettingsWindow::DrawActions()
         ImGui::EndTable();
     }
     if (changed) Later([this] { _host.ConfigChanged(); });
-}
-
-void SettingsWindow::DrawAssets()
-{
-    Config& c = _host.GetConfig();
-    SectionTitle("素材与装扮", "点一下就在她身上预览。表情可以同时选好几个，模型作者就是这样叠加使用的。");
-
-    const PetModel* model = _host.Model();
-    if (!model)
-    {
-        ImGui::TextDisabled("模型没有加载。");
-        return;
-    }
-    const auto& expressions = model->ExpressionNames();
-    const auto& motions = model->MotionNames();
-
-    ImGui::TextUnformatted("表情");
-    ImGui::SameLine();
-    ImGui::TextDisabled("（可多选）");
-    if (const std::string* name = ChipFlow(expressions, model, _previewExpressions))
-    {
-        auto it = std::find(_previewExpressions.begin(), _previewExpressions.end(), *name);
-        if (it != _previewExpressions.end()) _previewExpressions.erase(it);
-        else _previewExpressions.push_back(*name);
-        auto e = _previewExpressions;
-        Later([this, e] { _host.PreviewAssets(e, ""); });
-    }
-    ImGui::Dummy(ImVec2(0, 6));
-    ImGui::TextUnformatted("动画");
-    const std::vector<std::string> none;
-    if (const std::string* name = ChipFlow(motions, model, none))
-    {
-        auto e = _previewExpressions;
-        std::string m = *name;
-        Later([this, e, m] { _host.PreviewAssets(e, m); });
-    }
-    ImGui::Dummy(ImVec2(0, 6));
-    if (ImGui::Button("清除选择"))
-    {
-        _previewExpressions.clear();
-        Later([this] { _host.PreviewAssets({}, ""); });
-    }
-    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-    ImGui::TextWrapped("有些素材要搭配才看得见：鲸鱼喷水要先选头顶的鲸鱼或放在桌上的鲸鱼；MoeMoeQ~（挤）要配蛋包饭；"
-                       "魔爪换色要配魔爪；手机换色要在自拍手机动画里。冒爱心、喵喵手、情绪花花的动态效果由待机动画驱动。");
-    ImGui::PopStyleColor();
-
-    ImGui::Separator();
-    ImGui::TextUnformatted("装扮");
-    ImGui::SameLine();
-    ImGui::TextDisabled("（任何状态下都一直显示，适合道具、发型和贴纸）");
-    if (const std::string* name = ChipFlow(expressions, model, c.outfit))
-    {
-        auto it = std::find(c.outfit.begin(), c.outfit.end(), *name);
-        if (it != c.outfit.end()) c.outfit.erase(it);
-        else c.outfit.push_back(*name);
-        Later([this] { _host.ConfigChanged(); });
-    }
 }
 
 void SettingsWindow::RefreshHookStatus()

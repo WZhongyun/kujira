@@ -375,13 +375,6 @@ const std::string& PetModel::DisplayName(const std::string& name) const
     return it != _displayNames.end() ? it->second : name;
 }
 
-float PetModel::MotionDuration(const std::string& name) const
-{
-    auto it = _motions.find(name);
-    // GetDuration() is -1 once a motion has been played looping.
-    return it != _motions.end() ? static_cast<CubismMotion*>(it->second)->GetLoopDuration() : 0.0f;
-}
-
 void PetModel::Update(float dt)
 {
     _motionUpdated = false;

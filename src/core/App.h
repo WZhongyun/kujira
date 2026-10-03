@@ -37,8 +37,6 @@ public:
     virtual const EventServer& Server() const = 0;
     virtual void RestartServer() = 0;
     virtual void Preview(const std::string& actionKey) = 0;
-    // Shows these expressions and plays this motion for a few seconds, over any state.
-    virtual void PreviewAssets(const std::vector<std::string>& expressions, const std::string& motion) = 0;
     virtual void ResetWindowPosition() = 0;
     virtual float CurrentFps() const = 0;
     virtual void Quit() = 0;
@@ -67,7 +65,6 @@ public:
     const EventServer& Server() const override { return *_server; }
     void RestartServer() override;
     void Preview(const std::string& actionKey) override;
-    void PreviewAssets(const std::vector<std::string>& expressions, const std::string& motion) override;
     void ResetWindowPosition() override;
     float CurrentFps() const override { return _fps; }
     void Quit() override;
@@ -76,7 +73,6 @@ public:
     void SayPreview(const std::string& text) override;
 
 private:
-    StateAction _previewAction;  // shown under the action key "preview"
     bool InitWindow();
     void InitCubism();
     void LoadModel();

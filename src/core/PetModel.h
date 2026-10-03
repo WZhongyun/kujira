@@ -41,8 +41,6 @@ public:
     // Fades out the motion started by PlayMotion.
     void StopMotion();
     void SetIdleMotion(const std::string& name);
-    // Length of one pass of a motion in seconds, 0 if unknown.
-    float MotionDuration(const std::string& name) const;
 
     const std::vector<std::string>& ExpressionNames() const { return _expressionNames; }
     const std::vector<std::string>& MotionNames() const { return _motionNames; }
